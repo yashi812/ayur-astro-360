@@ -275,6 +275,15 @@
     font-size: 18px;
   }
 }
+.notify-feedback {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  text-align: center;
+  min-height: 20px;
+  transition: opacity 0.3s ease;
+}
+.notify-feedback.success { color: var(--green-mid); }
+.notify-feedback.error   { color: #c0392b; }
   </style>
 </head>
 <body>
@@ -360,9 +369,10 @@
   <h2 class="notify-title">Join the waitlist &amp;<br>get early access</h2>
   <p class="notify-subtitle">Be among the first to explore your personalised Ayurastro Index™ when we launch.</p>
   <div class="email-form">
-    <input class="email-input" type="email" placeholder="Enter your email address" />
-    <button class="notify-btn">Notify Me at Launch</button>
-  </div>
+  <input class="email-input" id="waitlistEmail" type="email" placeholder="Enter your email address" />
+  <button class="notify-btn" id="notifyBtn" onclick="handleNotify()">Notify Me at Launch</button>
+  <p class="notify-feedback" id="notifyFeedback"></p>
+</div>
 </section>
 
 <footer>
@@ -379,5 +389,64 @@
   class="herbs-left" 
   alt=""
 />
+
+<script>
+  async function handleNotify() {
+    const input = document.getElementById('waitlistEmail');
+    const btn   = document.getElementById('notifyBtn');
+    const fb    = document.getElementById('notifyFeedback');
+    const email = input.value.trim();
+
+    // Basic validation
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      fb.textContent = 'Please enter a valid email address.';
+      fb.className = 'notify-feedback error';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    fb.textContent = '';
+    fb.className = 'notify-feedback';
+
+    try {
+      // ── Option A: Google Sheets via Apps Script ──────────────────────────
+      // Paste your Apps Script Web App URL below and uncomment:
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbwygRLkhxl6eTiSWN1vmkpmUHZK5oW-O1Q_sEUkxRg3YyiYZQ-8QI25DVRnkT2TQv3M/exec';
+      // await fetch(SHEET_URL, { method:'POST', body: JSON.stringify({ email }), mode:'no-cors' });
+
+      await fetch(SHEET_URL, {
+  method: 'POST',
+  body: JSON.stringify({ email }),
+  mode: 'no-cors'   // required for cross-origin Apps Script calls
+});
+
+// Also save locally to handle duplicate check on client side
+const list = JSON.parse(localStorage.getItem('ayurastro_waitlist') || '[]');
+list.push(email);
+localStorage.setItem('ayurastro_waitlist', JSON.stringify(list));
+      list.push(email);
+      localStorage.setItem('ayurastro_waitlist', JSON.stringify(list));
+
+      // Success state
+      input.value = '';
+      btn.textContent = '✦ You\'re on the list!';
+      btn.style.background = 'linear-gradient(135deg, var(--green-deep), var(--green-mid))';
+      fb.textContent = "We'll reach out when we launch 🌿";
+      fb.className = 'notify-feedback success';
+
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = 'Notify Me at Launch';
+      fb.textContent = 'Something went wrong. Please try again.';
+      fb.className = 'notify-feedback error';
+    }
+  }
+
+  // Allow Enter key to submit
+  document.getElementById('waitlistEmail')
+    .addEventListener('keydown', e => { if (e.key === 'Enter') handleNotify(); });
+</script>
+
 </body>
 </html>
