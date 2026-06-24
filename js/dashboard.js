@@ -1,7 +1,7 @@
 // ============================================================
 //  dashboard.js — Dashboard page logic
 // ============================================================
-import { supabase, requireAuth, signOut } from '../supabase.js';
+import { supabase, getCurrentUser, signOut } from '../supabase.js';
 
 // ---- Shared: toast ----
 export function toast(msg, type = 'info') {
@@ -120,7 +120,7 @@ function renderRecent() {
 //  INIT
 // ============================================================
 (async () => {
-  const user = await requireAuth();
+  const user = await getCurrentUser();
   initSidebar();
   initSignout();
   renderGreeting(user);
@@ -128,12 +128,17 @@ function renderRecent() {
   renderStats();
   renderRecent();
 
-  // Try to load dosha from profile table
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('vata, pitta, kapha')
-    .eq('id', user.id)
-    .single();
+  // If there's an authenticated user, try to load dosha from profile table.
+  if (user && user.id) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('vata, pitta, kapha')
+      .eq('id', user.id)
+      .single();
 
-  renderDoshaBars(profile || {});
+    renderDoshaBars(profile || {});
+  } else {
+    // No user — render default/sample dosha values without requiring sign-in
+    renderDoshaBars({});
+  }
 })();

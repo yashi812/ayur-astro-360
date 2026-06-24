@@ -20,11 +20,10 @@ export async function getCurrentUser() {
  * Redirect to login if not authenticated.
  * Call this at the top of any protected page script.
  */
-export async function requireAuth(redirectTo = 'login.html') {
+export async function requireAuth() {
+  // No redirect: allow pages to call requireAuth() without forcing a login redirect.
+  // Returns the current user or null.
   const user = await getCurrentUser();
-  if (!user) {
-    window.location.href = redirectTo;
-  }
   return user;
 }
 
@@ -33,5 +32,6 @@ export async function requireAuth(redirectTo = 'login.html') {
  */
 export async function signOut() {
   await supabase.auth.signOut();
-  window.location.href = 'login.html';
+  // After sign-out, send user to the public index page.
+  window.location.href = 'index.html';
 }
