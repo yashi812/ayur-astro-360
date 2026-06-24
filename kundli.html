@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kundli — AyurAstro360°</title>
+  <meta name="description" content="Generate your Vedic birth chart and discover your planetary insights." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .dob-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+    .chart-svg-wrap{width:100%;max-width:340px;margin:0 auto;}
+    .planet-table{width:100%;border-collapse:collapse;font-size:13px;}
+    .planet-table th{text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-light);border-bottom:1px solid rgba(30,92,46,.1);}
+    .planet-table td{padding:10px 12px;border-bottom:1px solid rgba(30,92,46,.06);}
+    .insights-list{display:flex;flex-direction:column;gap:14px;margin-top:16px;}
+    .insight-item{padding:16px 18px;border-radius:var(--radius-sm);background:rgba(30,92,46,.04);border-left:3px solid var(--gold);font-size:14px;line-height:1.6;}
+    .chart-loading{display:flex;align-items:center;justify-content:center;padding:48px;gap:12px;color:var(--text-light);font-size:14px;}
+    .spinner{width:22px;height:22px;border:2px solid rgba(30,92,46,.2);border-top-color:var(--green-mid);border-radius:50%;animation:spin .8s linear infinite;}
+    .kundli-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+    @media(max-width:900px){.kundli-grid{grid-template-columns:1fr;}}
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <img src="main_logo_nobg.png" alt="Logo" />
+        <div class="sidebar-logo-text">ayurastro<span>360°</span></div>
+      </div>
+      <div class="sidebar-nav">
+        <div class="nav-label">Main</div>
+        <a class="nav-item" href="dashboard.html"><span class="nav-icon">🏠</span> Dashboard</a>
+        <a class="nav-item active" href="kundli.html"><span class="nav-icon">⭐</span> Kundli</a>
+        <a class="nav-item" href="health.html"><span class="nav-icon">🌿</span> Health & Dosha</a>
+        <a class="nav-item" href="manifestation.html"><span class="nav-icon">🔮</span> Manifestation</a>
+        <a class="nav-item" href="chat.html"><span class="nav-icon">💬</span> AI Guru Chat</a>
+        <div class="nav-label">Account</div>
+        <a class="nav-item" href="profile.html"><span class="nav-icon">👤</span> Profile</a>
+      </div>
+      <div class="sidebar-footer">
+        <button class="signout-btn" id="signoutBtn">⬅ Sign Out</button>
+      </div>
+    </nav>
+    <div class="main-content">
+      <header class="top-bar">
+        <button class="hamburger" id="hamburger">☰</button>
+        <span class="top-bar-title">Vedic Kundli</span>
+        <div class="top-bar-right">
+          <button class="btn btn-outline btn-sm" id="resetChart" style="display:none;">⟳ New Chart</button>
+          <a href="profile.html" class="avatar-btn" id="avatarBtn">A</a>
+        </div>
+      </header>
+      <main class="page-content">
+        <div class="card" id="kundliFormCard" style="max-width:560px;">
+          <div class="card-title">🌟 Generate Your Birth Chart</div>
+          <p class="card-subtitle" style="margin-bottom:24px;">Enter your birth details to reveal your Vedic horoscope</p>
+          <form id="kundliForm" novalidate>
+            <div class="form-group">
+              <label class="form-label">Full Name</label>
+              <input class="form-input" id="kName" type="text" placeholder="Your full name" required />
+            </div>
+            <div class="dob-row">
+              <div class="form-group">
+                <label class="form-label">Day</label>
+                <input class="form-input" id="kDay" type="number" min="1" max="31" placeholder="DD" required />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Month</label>
+                <select class="form-select" id="kMonth" required>
+                  <option value="">Month</option>
+                  <option>January</option><option>February</option><option>March</option>
+                  <option>April</option><option>May</option><option>June</option>
+                  <option>July</option><option>August</option><option>September</option>
+                  <option>October</option><option>November</option><option>December</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Year</label>
+                <input class="form-input" id="kYear" type="number" min="1900" max="2025" placeholder="YYYY" required />
+              </div>
+            </div>
+            <div class="dob-row">
+              <div class="form-group">
+                <label class="form-label">Hour (24h)</label>
+                <input class="form-input" id="kHour" type="number" min="0" max="23" placeholder="HH" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Minute</label>
+                <input class="form-input" id="kMin" type="number" min="0" max="59" placeholder="MM" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">&nbsp;</label>
+                <select class="form-select" id="kAmpm"><option>AM</option><option>PM</option></select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Birth Place</label>
+              <input class="form-input" id="kPlace" type="text" placeholder="City, Country" required />
+            </div>
+            <button class="btn btn-primary btn-block" type="submit" id="kundliBtn">⭐ Generate My Kundli</button>
+          </form>
+        </div>
+        <div class="chart-loading" id="kundliLoading" style="display:none;">
+          <div class="spinner"></div> Consulting the stars…
+        </div>
+        <div id="kundliResult" style="display:none;">
+          <div class="kundli-grid">
+            <div class="card">
+              <div class="card-title">⭐ Birth Chart</div>
+              <div class="chart-svg-wrap" id="chartSvgWrap"></div>
+            </div>
+            <div class="card">
+              <div class="card-title">🪐 Planetary Positions</div>
+              <table class="planet-table">
+                <thead><tr><th>Planet</th><th>Sign</th><th>House</th><th>Deg°</th></tr></thead>
+                <tbody id="planetTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card" style="margin-top:24px;">
+            <div class="card-title">✨ AI-Powered Insights</div>
+            <div class="insights-list" id="insightsList"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <div id="toast-container"></div>
+  <script type="module" src="js/kundli.js"></script>
+</body>
+</html>

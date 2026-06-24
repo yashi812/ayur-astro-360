@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Profile — AyurAstro360°</title>
+  <meta name="description" content="Manage your AyurAstro360 profile and birth details." />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .profile-hero{
+      background:linear-gradient(135deg,var(--green-deep),var(--green-mid));
+      border-radius:var(--radius-md);padding:32px;color:#fff;
+      display:flex;align-items:center;gap:24px;margin-bottom:28px;
+      position:relative;overflow:hidden;
+    }
+    .profile-hero::before{content:'☿';position:absolute;right:-10px;top:-20px;font-size:140px;opacity:.06;}
+    .avatar-large{
+      width:80px;height:80px;border-radius:50%;
+      background:rgba(255,255,255,.2);border:3px solid rgba(255,255,255,.4);
+      display:flex;align-items:center;justify-content:center;
+      font-size:32px;font-weight:700;flex-shrink:0;
+    }
+    .profile-name{font-family:'Playfair Display',serif;font-size:24px;margin-bottom:4px;}
+    .profile-email{font-size:13px;opacity:.78;margin-bottom:10px;}
+    .profile-badges{display:flex;flex-wrap:wrap;gap:8px;}
+    .profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+    .section-title{font-family:'Playfair Display',serif;font-size:18px;color:var(--green-deep);margin-bottom:16px;}
+    .danger-zone{border:1px solid rgba(192,57,43,.2);border-radius:var(--radius-md);padding:20px;}
+    .danger-title{color:#c0392b;font-weight:600;font-size:15px;margin-bottom:8px;}
+    .danger-text{font-size:13px;color:var(--text-light);margin-bottom:14px;}
+    @media(max-width:900px){.profile-grid{grid-template-columns:1fr;}}
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <img src="main_logo_nobg.png" alt="Logo" />
+        <div class="sidebar-logo-text">ayurastro<span>360°</span></div>
+      </div>
+      <div class="sidebar-nav">
+        <div class="nav-label">Main</div>
+        <a class="nav-item" href="dashboard.html"><span class="nav-icon">🏠</span> Dashboard</a>
+        <a class="nav-item" href="kundli.html"><span class="nav-icon">⭐</span> Kundli</a>
+        <a class="nav-item" href="health.html"><span class="nav-icon">🌿</span> Health & Dosha</a>
+        <a class="nav-item" href="manifestation.html"><span class="nav-icon">🔮</span> Manifestation</a>
+        <a class="nav-item" href="chat.html"><span class="nav-icon">💬</span> AI Guru Chat</a>
+        <div class="nav-label">Account</div>
+        <a class="nav-item active" href="profile.html"><span class="nav-icon">👤</span> Profile</a>
+      </div>
+      <div class="sidebar-footer">
+        <button class="signout-btn" id="signoutBtn">⬅ Sign Out</button>
+      </div>
+    </nav>
+    <div class="main-content">
+      <header class="top-bar">
+        <button class="hamburger" id="hamburger">☰</button>
+        <span class="top-bar-title">My Profile</span>
+        <div class="top-bar-right">
+          <a href="profile.html" class="avatar-btn" id="avatarBtn">A</a>
+        </div>
+      </header>
+      <main class="page-content">
+
+        <!-- Profile Hero -->
+        <div class="profile-hero">
+          <div class="avatar-large" id="profileAvatar">A</div>
+          <div>
+            <div class="profile-name" id="profileName">Loading...</div>
+            <div class="profile-email" id="profileEmail"></div>
+            <div class="profile-badges">
+              <span class="badge badge-gold" id="doshaBadge">🌿 Dosha: —</span>
+              <span class="badge" style="background:rgba(255,255,255,.15);color:#fff;" id="memberSince">Member since —</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="profile-grid">
+          <!-- Personal Info -->
+          <div class="card">
+            <div class="section-title">👤 Personal Information</div>
+            <form id="profileForm">
+              <div class="form-group">
+                <label class="form-label">Display Name</label>
+                <input class="form-input" id="pName" type="text" placeholder="Your name" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Email</label>
+                <input class="form-input" id="pEmail" type="email" disabled style="opacity:.6;" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Phone (optional)</label>
+                <input class="form-input" id="pPhone" type="tel" placeholder="+91 98765 43210" />
+              </div>
+              <button class="btn btn-primary btn-sm" type="submit" id="saveProfileBtn">Save Changes</button>
+            </form>
+          </div>
+
+          <!-- Birth Details -->
+          <div class="card">
+            <div class="section-title">🌟 Birth Details</div>
+            <p class="card-subtitle" style="margin-bottom:16px;">Used for Kundli & Dosha calculations</p>
+            <form id="birthForm">
+              <div class="form-group">
+                <label class="form-label">Date of Birth</label>
+                <input class="form-input" id="pDob" type="date" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Time of Birth</label>
+                <input class="form-input" id="pTob" type="time" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Place of Birth</label>
+                <input class="form-input" id="pPob" type="text" placeholder="City, Country" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Gender</label>
+                <select class="form-select" id="pGender">
+                  <option value="">Prefer not to say</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <button class="btn btn-primary btn-sm" type="submit" id="saveBirthBtn">Save Birth Details</button>
+            </form>
+          </div>
+
+          <!-- Stats -->
+          <div class="card">
+            <div class="section-title">📊 My Journey</div>
+            <div style="display:flex;flex-direction:column;gap:14px;" id="profileStats">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:rgba(30,92,46,.04);border-radius:var(--radius-sm);">
+                <span style="font-size:14px;color:var(--text-mid);">⭐ Kundli Readings</span>
+                <span style="font-weight:600;color:var(--green-deep);" id="psReadings">0</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:rgba(30,92,46,.04);border-radius:var(--radius-sm);">
+                <span style="font-size:14px;color:var(--text-mid);">🔮 Manifestations</span>
+                <span style="font-weight:600;color:var(--green-deep);" id="psManifest">0</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:rgba(30,92,46,.04);border-radius:var(--radius-sm);">
+                <span style="font-size:14px;color:var(--text-mid);">💬 AI Conversations</span>
+                <span style="font-weight:600;color:var(--green-deep);" id="psChats">0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Security -->
+          <div class="card">
+            <div class="section-title">🔒 Security</div>
+            <form id="passwordForm">
+              <div class="form-group">
+                <label class="form-label">New Password</label>
+                <input class="form-input" id="pNewPwd" type="password" placeholder="Min. 8 characters" minlength="8" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Confirm New Password</label>
+                <input class="form-input" id="pConfirmPwd" type="password" placeholder="Re-enter password" />
+              </div>
+              <button class="btn btn-outline btn-sm" type="submit" id="changePasswordBtn">Update Password</button>
+            </form>
+            <div style="margin-top:24px;" class="danger-zone">
+              <div class="danger-title">⚠ Danger Zone</div>
+              <div class="danger-text">Permanently delete your account and all associated data. This action cannot be undone.</div>
+              <button class="btn btn-sm" style="background:#c0392b;color:#fff;" id="deleteAccountBtn">Delete Account</button>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+  <div id="toast-container"></div>
+  <script type="module" src="js/profile.js"></script>
+</body>
+</html>

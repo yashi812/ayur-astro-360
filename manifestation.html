@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manifestation Journal — AyurAstro360°</title>
+  <meta name="description" content="Manifest your intentions using sacred cosmic techniques." />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .technique-tabs{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px;}
+    .tab-btn{
+      padding:9px 18px;border-radius:50px;border:1.5px solid rgba(30,92,46,.2);
+      background:transparent;font-size:13px;font-weight:500;color:var(--text-mid);
+      cursor:pointer;transition:all var(--transition);
+    }
+    .tab-btn.active,.tab-btn:hover{background:var(--green-deep);color:#fff;border-color:var(--green-deep);}
+    .technique-info{
+      padding:16px 20px;border-radius:var(--radius-sm);
+      background:linear-gradient(135deg,rgba(30,92,46,.06),rgba(200,125,47,.05));
+      border:1px solid rgba(200,125,47,.15);margin-bottom:20px;font-size:13px;
+      color:var(--text-mid);line-height:1.6;
+    }
+    .technique-info strong{color:var(--green-deep);}
+    .entry-counter{font-family:'Playfair Display',serif;font-size:40px;color:var(--gold);text-align:center;margin:10px 0 4px;}
+    .entry-counter-label{text-align:center;font-size:12px;color:var(--text-light);margin-bottom:16px;}
+    /* Sacred animation overlay */
+    .sacred-overlay{
+      position:fixed;inset:0;z-index:999;
+      background:radial-gradient(ellipse at center, rgba(30,92,46,.95) 0%, rgba(10,30,15,.98) 100%);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      opacity:0;pointer-events:none;transition:opacity .5s ease;
+    }
+    .sacred-overlay.show{opacity:1;pointer-events:all;}
+    .sacred-mandala{font-size:80px;animation:pulse 2s ease infinite;margin-bottom:24px;}
+    .sacred-text{font-family:'Playfair Display',serif;font-size:28px;color:#fff;text-align:center;margin-bottom:8px;}
+    .sacred-sub{font-size:15px;color:rgba(200,125,47,.85);text-align:center;}
+    .sacred-particles{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+    /* Entry list */
+    .entry-list{display:flex;flex-direction:column;gap:12px;margin-top:16px;}
+    .entry-row{
+      display:flex;align-items:flex-start;gap:14px;
+      padding:14px 18px;border-radius:var(--radius-sm);
+      background:rgba(30,92,46,.04);border:1px solid rgba(30,92,46,.08);
+    }
+    .entry-icon{font-size:22px;flex-shrink:0;margin-top:2px;}
+    .entry-body{flex:1;}
+    .entry-text{font-size:14px;color:var(--text-dark);line-height:1.5;margin-bottom:4px;}
+    .entry-meta{font-size:11px;color:var(--text-light);}
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <img src="main_logo_nobg.png" alt="Logo" />
+        <div class="sidebar-logo-text">ayurastro<span>360°</span></div>
+      </div>
+      <div class="sidebar-nav">
+        <div class="nav-label">Main</div>
+        <a class="nav-item" href="dashboard.html"><span class="nav-icon">🏠</span> Dashboard</a>
+        <a class="nav-item" href="kundli.html"><span class="nav-icon">⭐</span> Kundli</a>
+        <a class="nav-item" href="health.html"><span class="nav-icon">🌿</span> Health & Dosha</a>
+        <a class="nav-item active" href="manifestation.html"><span class="nav-icon">🔮</span> Manifestation</a>
+        <a class="nav-item" href="chat.html"><span class="nav-icon">💬</span> AI Guru Chat</a>
+        <div class="nav-label">Account</div>
+        <a class="nav-item" href="profile.html"><span class="nav-icon">👤</span> Profile</a>
+      </div>
+      <div class="sidebar-footer">
+        <button class="signout-btn" id="signoutBtn">⬅ Sign Out</button>
+      </div>
+    </nav>
+    <div class="main-content">
+      <header class="top-bar">
+        <button class="hamburger" id="hamburger">☰</button>
+        <span class="top-bar-title">Manifestation Journal</span>
+        <div class="top-bar-right">
+          <a href="profile.html" class="avatar-btn" id="avatarBtn">A</a>
+        </div>
+      </header>
+      <main class="page-content">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;">
+
+          <!-- Write Entry -->
+          <div class="card">
+            <div class="card-title">🔮 Set Your Intention</div>
+            <p class="card-subtitle" style="margin-bottom:20px;">Choose a sacred technique and write your manifestation</p>
+
+            <div class="technique-tabs" id="techniqueTabs">
+              <button class="tab-btn active" data-technique="369">3-6-9 Method</button>
+              <button class="tab-btn" data-technique="555">5x55 Method</button>
+              <button class="tab-btn" data-technique="scripting">Scripting</button>
+              <button class="tab-btn" data-technique="affirmation">Affirmation</button>
+            </div>
+            <div class="technique-info" id="techniqueInfo"></div>
+
+            <div id="counterWrap" style="display:none;">
+              <div class="entry-counter" id="entryCounter">0</div>
+              <div class="entry-counter-label" id="entryCounterLabel">of 3 entries today</div>
+            </div>
+
+            <form id="manifestForm">
+              <div class="form-group">
+                <label class="form-label" for="manifestText">Your Intention</label>
+                <textarea class="form-textarea" id="manifestText" rows="5" placeholder="Write your manifestation in present tense... e.g. 'I am grateful for abundance flowing into my life.'" required></textarea>
+              </div>
+              <button class="btn btn-gold btn-block" type="submit" id="manifestBtn">
+                ✨ Seal My Intention
+              </button>
+            </form>
+          </div>
+
+          <!-- History -->
+          <div class="card">
+            <div class="card-title">📖 Journal History</div>
+            <p class="card-subtitle" style="margin-bottom:16px;">Your sacred entries</p>
+            <div class="entry-list" id="entryList">
+              <div style="color:var(--text-light);font-size:14px;padding:32px 0;text-align:center;">
+                No entries yet — begin your journey 🌿
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Sacred Animation Overlay -->
+  <div class="sacred-overlay" id="sacredOverlay">
+    <div class="sacred-particles" id="sacredParticles"></div>
+    <div class="sacred-mandala">🔮</div>
+    <div class="sacred-text" id="sacredTitle">Intention Sealed</div>
+    <div class="sacred-sub" id="sacredSub">Your manifestation is sent to the universe ✨</div>
+  </div>
+
+  <div id="toast-container"></div>
+  <script type="module" src="js/manifestation.js"></script>
+</body>
+</html>

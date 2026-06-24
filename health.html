@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Health & Dosha — AyurAstro360°</title>
+  <meta name="description" content="Discover your Ayurvedic constitution and get personalised health guidance." />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .quiz-step{display:none;}
+    .quiz-step.active{display:block;animation:fadeUp .4s ease;}
+    .quiz-options{display:flex;flex-direction:column;gap:10px;margin-top:16px;}
+    .quiz-option{
+      padding:14px 18px;border-radius:var(--radius-sm);
+      border:1.5px solid rgba(30,92,46,.18);background:rgba(30,92,46,.03);
+      font-size:14px;cursor:pointer;text-align:left;
+      transition:all var(--transition);
+    }
+    .quiz-option:hover,.quiz-option.selected{background:var(--green-glow);border-color:var(--green-mid);color:var(--green-deep);font-weight:500;}
+    .quiz-progress{height:4px;background:rgba(30,92,46,.1);border-radius:99px;margin-bottom:24px;overflow:hidden;}
+    .quiz-progress-fill{height:100%;background:linear-gradient(90deg,var(--green-mid),var(--green-light));border-radius:99px;transition:width .4s ease;}
+    .quiz-nav{display:flex;justify-content:space-between;margin-top:24px;gap:12px;}
+    .dosha-result{text-align:center;padding:32px;}
+    .dosha-big{font-family:'Playfair Display',serif;font-size:56px;color:var(--green-deep);margin-bottom:8px;}
+    .dosha-sub{font-size:15px;color:var(--text-mid);margin-bottom:28px;}
+    .remedy-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;margin-top:20px;}
+    .remedy-card{padding:20px;border-radius:var(--radius-md);background:rgba(30,92,46,.04);border:1px solid rgba(30,92,46,.08);}
+    .remedy-icon{font-size:28px;margin-bottom:10px;}
+    .remedy-title{font-weight:600;color:var(--green-deep);margin-bottom:6px;font-size:14px;}
+    .remedy-text{font-size:13px;color:var(--text-mid);line-height:1.55;}
+    .dosha-bars-result{max-width:380px;margin:24px auto;}
+    .dosha-bar-wrap{margin-bottom:14px;}
+    .dosha-bar-label{display:flex;justify-content:space-between;font-size:13px;color:var(--text-mid);margin-bottom:5px;}
+    .dosha-bar-track{height:10px;background:rgba(30,92,46,.1);border-radius:99px;overflow:hidden;}
+    .dosha-bar-fill{height:100%;border-radius:99px;transition:width 1.2s ease;}
+    .dosha-vata{background:linear-gradient(90deg,#7bc8f6,#4b9fe1);}
+    .dosha-pitta{background:linear-gradient(90deg,#f6a87b,#e05c30);}
+    .dosha-kapha{background:linear-gradient(90deg,#7bf69b,#2d9e4f);}
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <img src="main_logo_nobg.png" alt="Logo" />
+        <div class="sidebar-logo-text">ayurastro<span>360°</span></div>
+      </div>
+      <div class="sidebar-nav">
+        <div class="nav-label">Main</div>
+        <a class="nav-item" href="dashboard.html"><span class="nav-icon">🏠</span> Dashboard</a>
+        <a class="nav-item" href="kundli.html"><span class="nav-icon">⭐</span> Kundli</a>
+        <a class="nav-item active" href="health.html"><span class="nav-icon">🌿</span> Health & Dosha</a>
+        <a class="nav-item" href="manifestation.html"><span class="nav-icon">🔮</span> Manifestation</a>
+        <a class="nav-item" href="chat.html"><span class="nav-icon">💬</span> AI Guru Chat</a>
+        <div class="nav-label">Account</div>
+        <a class="nav-item" href="profile.html"><span class="nav-icon">👤</span> Profile</a>
+      </div>
+      <div class="sidebar-footer">
+        <button class="signout-btn" id="signoutBtn">⬅ Sign Out</button>
+      </div>
+    </nav>
+    <div class="main-content">
+      <header class="top-bar">
+        <button class="hamburger" id="hamburger">☰</button>
+        <span class="top-bar-title">Health & Dosha</span>
+        <div class="top-bar-right">
+          <button class="btn btn-outline btn-sm" id="retakeBtn" style="display:none;">⟳ Retake Quiz</button>
+          <a href="profile.html" class="avatar-btn" id="avatarBtn">A</a>
+        </div>
+      </header>
+      <main class="page-content">
+
+        <!-- Quiz Card -->
+        <div class="card" id="quizCard" style="max-width:600px;">
+          <div class="card-title">🌿 Discover Your Prakriti</div>
+          <p class="card-subtitle" style="margin-bottom:20px;">Answer these questions to reveal your Ayurvedic constitution</p>
+          <div class="quiz-progress"><div class="quiz-progress-fill" id="quizProgressFill" style="width:0%"></div></div>
+          <div id="quizStepLabel" style="font-size:12px;color:var(--text-light);margin-bottom:16px;">Question 1 of 7</div>
+
+          <!-- Steps populated by JS -->
+          <div id="quizSteps"></div>
+
+          <div class="quiz-nav">
+            <button class="btn btn-outline btn-sm" id="prevBtn" style="display:none;">← Back</button>
+            <button class="btn btn-primary btn-sm" id="nextBtn">Next →</button>
+          </div>
+        </div>
+
+        <!-- Result -->
+        <div id="healthResult" style="display:none;">
+          <div class="card dosha-result">
+            <div class="dosha-big" id="doshaName">Vata</div>
+            <div class="dosha-sub" id="doshaSub"></div>
+            <div class="dosha-bars-result">
+              <div class="dosha-bar-wrap">
+                <div class="dosha-bar-label"><span>🌬 Vata</span><span id="vataVal">—</span></div>
+                <div class="dosha-bar-track"><div class="dosha-bar-fill dosha-vata" id="vataBar" style="width:0%"></div></div>
+              </div>
+              <div class="dosha-bar-wrap">
+                <div class="dosha-bar-label"><span>🔥 Pitta</span><span id="pittaVal">—</span></div>
+                <div class="dosha-bar-track"><div class="dosha-bar-fill dosha-pitta" id="pittaBar" style="width:0%"></div></div>
+              </div>
+              <div class="dosha-bar-wrap">
+                <div class="dosha-bar-label"><span>🌊 Kapha</span><span id="kaphaVal">—</span></div>
+                <div class="dosha-bar-track"><div class="dosha-bar-fill dosha-kapha" id="kaphaBar" style="width:0%"></div></div>
+              </div>
+            </div>
+            <div class="btn btn-gold btn-sm" style="display:inline-flex;cursor:default;margin-bottom:24px;" id="doshaBadge">Your Dosha</div>
+          </div>
+          <div class="card" style="margin-top:20px;">
+            <div class="card-title">🌱 Personalised Remedies & Rituals</div>
+            <div class="remedy-grid" id="remedyGrid"></div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+  <div id="toast-container"></div>
+  <script type="module" src="js/dashboard.js"></script>
+  <script type="module">
+    import { requireAuth, signOut } from './supabase.js';
+    requireAuth();
+    document.getElementById('signoutBtn').onclick = signOut;
+    // Hamburger
+    document.getElementById('hamburger').onclick = () => document.getElementById('sidebar').classList.toggle('open');
+  </script>
+  <script src="js/health-quiz.js"></script>
+</body>
+</html>
