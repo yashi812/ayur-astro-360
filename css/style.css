@@ -609,3 +609,54 @@ input, textarea, select { font-family: inherit; }
   .auth-card { padding: 28px 20px; }
   .top-bar { padding: 14px 16px; }
 }
+
+/* ============================================================
+   MOBILE FIXES
+   ============================================================ */
+@media (max-width: 600px) {
+
+  /* Top bar — hide "Ask Guru" button on small screens to prevent overflow */
+  .top-bar { padding: 12px 16px; gap: 10px; }
+  .top-bar .btn-gold { display: none; }
+  .top-bar-title { font-size: 18px; }
+
+  /* Page padding */
+  .page-content { padding: 20px 14px; }
+
+  /* Greeting */
+  .greeting { font-size: 22px; }
+
+  /* Stats — single column on very small, 2-col otherwise */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  /* Forecast + Dosha — stack vertically */
+  .dash-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  /* Cosmic forecast card — shrink font */
+  .today-rashi-planet { font-size: 18px; }
+  .today-rashi { padding: 20px; }
+
+  /* Quick actions — 2 columns instead of 3 */
+  .quick-actions {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  /* Card padding */
+  .card { padding: 16px; }
+
+  /* Dosha bars */
+  .dosha-bar-wrap { margin-bottom: 18px; }
+}
+
+@media (max-width: 600px) {
+  .mobile-ask-guru { display: inline-flex !important; }
+}

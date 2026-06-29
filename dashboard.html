@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="css/style.css" />
   <style>
     .greeting { font-family:'Playfair Display',serif; font-size:28px; color:var(--green-deep); margin-bottom:4px; }
-    .greeting-sub { font-size:14px; color:var(--text-light); margin-bottom:32px; }
+    .greeting-sub { font-size:14px; color:var(--text-light); margin-bottom:32px; }    
     .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:18px; margin-bottom:32px; }
     .stat-card {
       background: var(--surface);
@@ -112,6 +112,8 @@
       <main class="page-content">
         <h1 class="greeting" id="greetingText">Namaste, ✨</h1>
         <p class="greeting-sub" id="greetingDate">Loading your cosmic snapshot...</p>
+        <!-- Mobile Ask Guru (shown only on small screens) -->
+<a href="chat.html" class="btn btn-gold btn-sm mobile-ask-guru" style="display:none; margin-bottom:20px;">✦ Ask Guru</a>
 
         <!-- Stats -->
         <div class="stats-grid">
