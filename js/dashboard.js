@@ -18,12 +18,22 @@ export function toast(msg, type = 'info') {
 export function initSidebar() {
   const hamburger = document.getElementById('hamburger');
   const sidebar   = document.getElementById('sidebar');
-  if (hamburger && sidebar) {
-    hamburger.addEventListener('click', () => sidebar.classList.toggle('open'));
-    document.addEventListener('click', (e) => {
-      if (!sidebar.contains(e.target) && !hamburger.contains(e.target)) sidebar.classList.remove('open');
-    });
-  }
+  const backdrop  = document.getElementById('sidebarBackdrop');
+
+  if (!hamburger || !sidebar) return;
+
+  const open  = () => { sidebar.classList.add('open');    backdrop?.classList.add('open'); };
+  const close = () => { sidebar.classList.remove('open'); backdrop?.classList.remove('open'); };
+
+  hamburger.addEventListener('click', () =>
+    sidebar.classList.contains('open') ? close() : open()
+  );
+
+  // Tap backdrop to close
+  backdrop?.addEventListener('click', close);
+
+  // Tap any nav link to close (good for same-page or mobile)
+  document.querySelectorAll('.nav-item').forEach(l => l.addEventListener('click', close));
 }
 
 // ---- Shared: sign out ----

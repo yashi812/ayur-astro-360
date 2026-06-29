@@ -552,25 +552,55 @@ input, textarea, select { font-family: inherit; }
 /* ============================================================
    RESPONSIVE
    ============================================================ */
+/* ============================================================
+   HAMBURGER — always visible, sidebar always off-canvas
+   ============================================================ */
 .hamburger {
-  display: none;
+  display: flex;           /* always show, remove the display:none */
+  align-items: center;
+  justify-content: center;
   background: none;
-  border: none;
-  font-size: 22px;
+  border: 1px solid rgba(30,92,46,0.15);
+  border-radius: 8px;
+  width: 38px;
+  height: 38px;
+  font-size: 20px;
   color: var(--green-deep);
   cursor: pointer;
+  flex-shrink: 0;
 }
 
+.sidebar {
+  transform: translateX(-100%);   /* hidden by default on ALL screen sizes */
+  box-shadow: var(--shadow-lg);
+  z-index: 200;
+}
+.sidebar.open {
+  transform: translateX(0);
+}
+
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 15, 10, 0.35);
+  z-index: 199;
+  opacity: 0;
+  transition: opacity var(--transition);
+  pointer-events: none;
+}
+.sidebar-backdrop.open {
+  display: block;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.main-content {
+  margin-left: 0;          /* full width always, sidebar overlays */
+}
+
+/* Keep responsive tweaks for smaller screens */
 @media (max-width: 900px) {
-  .sidebar {
-    transform: translateX(-100%);
-    box-shadow: var(--shadow-lg);
-  }
-  .sidebar.open {
-    transform: translateX(0);
-  }
-  .main-content { margin-left: 0; }
-  .hamburger { display: block; }
   .kundli-grid { grid-template-columns: 1fr; }
   .page-content { padding: 20px 16px; }
 }
