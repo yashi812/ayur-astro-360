@@ -21,6 +21,39 @@
     .spinner{width:22px;height:22px;border:2px solid rgba(30,92,46,.2);border-top-color:var(--green-mid);border-radius:50%;animation:spin .8s linear infinite;}
     .kundli-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
     @media(max-width:900px){.kundli-grid{grid-template-columns:1fr;}}
+
+    /* ── Sun Sign Banner ── */
+    .sun-sign-banner{
+      display:flex;gap:16px;align-items:stretch;flex-wrap:wrap;
+      margin-bottom:24px;
+    }
+    .sign-pill{
+      flex:1;min-width:140px;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:6px;padding:20px 16px;border-radius:14px;
+      background:linear-gradient(135deg,rgba(200,125,47,.12),rgba(30,92,46,.08));
+      border:1px solid rgba(200,125,47,.25);
+      position:relative;overflow:hidden;
+    }
+    .sign-pill::before{
+      content:'';position:absolute;inset:0;
+      background:radial-gradient(ellipse at top left,rgba(200,125,47,.12) 0%,transparent 70%);
+      pointer-events:none;
+    }
+    .sign-pill.primary{
+      background:linear-gradient(135deg,rgba(200,125,47,.22),rgba(30,92,46,.14));
+      border-color:rgba(200,125,47,.5);
+      box-shadow:0 4px 24px rgba(200,125,47,.15);
+    }
+    .sign-pill-label{font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--text-light);}
+    .sign-pill-emoji{font-size:32px;line-height:1;}
+    .sign-pill-name{font-size:18px;font-weight:700;color:var(--text-dark);font-family:'Playfair Display',serif;}
+    .sign-pill-symbol{font-size:13px;color:var(--gold);font-weight:500;}
+    @media(max-width:600px){
+      .sign-pill{padding:14px 10px;}
+      .sign-pill-emoji{font-size:24px;}
+      .sign-pill-name{font-size:15px;}
+    }
   </style>
 </head>
 <body>
@@ -85,8 +118,8 @@
             </div>
             <div class="dob-row">
               <div class="form-group">
-                <label class="form-label">Hour (24h)</label>
-                <input class="form-input" id="kHour" type="number" min="0" max="23" placeholder="HH" />
+                <label class="form-label">Hour</label>
+                <input class="form-input" id="kHour" type="number" min="1" max="12" placeholder="HH" />
               </div>
               <div class="form-group">
                 <label class="form-label">Minute</label>
@@ -108,6 +141,27 @@
           <div class="spinner"></div> Consulting the stars…
         </div>
         <div id="kundliResult" style="display:none;">
+          <!-- ── Big Three: Sun · Moon · Lagna ── -->
+          <div class="sun-sign-banner" id="sunSignBanner">
+            <div class="sign-pill primary" id="pillSun">
+              <span class="sign-pill-label">☉ Sun Sign</span>
+              <span class="sign-pill-emoji" id="sunEmoji">♈</span>
+              <span class="sign-pill-name" id="sunSignName">—</span>
+              <span class="sign-pill-symbol" id="sunDeg"></span>
+            </div>
+            <div class="sign-pill" id="pillMoon">
+              <span class="sign-pill-label">☽ Moon Sign</span>
+              <span class="sign-pill-emoji" id="moonEmoji">♈</span>
+              <span class="sign-pill-name" id="moonSignName">—</span>
+              <span class="sign-pill-symbol" id="moonDeg"></span>
+            </div>
+            <div class="sign-pill" id="pillLagna">
+              <span class="sign-pill-label">⬆ Ascendant</span>
+              <span class="sign-pill-emoji" id="lagnaEmoji">♈</span>
+              <span class="sign-pill-name" id="lagnaSignName">—</span>
+              <span class="sign-pill-symbol" id="lagnaDeg">House 1</span>
+            </div>
+          </div>
           <div class="kundli-grid">
             <div class="card">
               <div class="card-title">⭐ Birth Chart</div>

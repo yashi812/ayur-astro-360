@@ -1,6 +1,6 @@
 // ============================================================
 //  kundli.js — Vedic Birth Chart generation & AI Insights
-//  Now powered by VedAstro API via Supabase Edge Function
+//  Powered by VedAstro REST API (vedastro.org)
 // ============================================================
 import { supabase, requireAuth, signOut } from '../supabase.js';
 import { askGemini } from './gemini.js';
@@ -36,96 +36,225 @@ const RASHIS = [
   'Aries ♈','Taurus ♉','Gemini ♊','Cancer ♋','Leo ♌','Virgo ♍',
   'Libra ♎','Scorpio ♏','Sagittarius ♐','Capricorn ♑','Aquarius ♒','Pisces ♓'
 ];
-const PLANETS_LIST = ['Sun ☉','Moon ☽','Mars ♂','Mercury ☿','Jupiter ♃','Venus ♀','Saturn ♄','Rahu ☊','Ketu ☋'];
 
-// ── Planet symbol lookup (for the SVG wheel) ──────────────────────────────────
+// Map English sign names returned by the API → our RASHIS labels
+const SIGN_NAME_MAP = {
+  Aries: 'Aries ♈', Taurus: 'Taurus ♉', Gemini: 'Gemini ♊',
+  Cancer: 'Cancer ♋', Leo: 'Leo ♌', Virgo: 'Virgo ♍',
+  Libra: 'Libra ♎', Scorpio: 'Scorpio ♏', Sagittarius: 'Sagittarius ♐',
+  Capricorn: 'Capricorn ♑', Aquarius: 'Aquarius ♒', Pisces: 'Pisces ♓',
+};
+
+// Planet keys as the VedAstro API expects them
+const PLANET_API_NAMES = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'Rahu', 'Ketu'];
+
+// Display labels (with Unicode symbol)
+const PLANET_DISPLAY = {
+  Sun: 'Sun ☉', Moon: 'Moon ☽', Mars: 'Mars ♂', Mercury: 'Mercury ☿',
+  Jupiter: 'Jupiter ♃', Venus: 'Venus ♀', Saturn: 'Saturn ♄',
+  Rahu: 'Rahu ☊', Ketu: 'Ketu ☋',
+};
+
+// SVG symbol lookup
 const PLANET_SYMBOLS = {
   Sun: '☉', Moon: '☽', Mars: '♂', Mercury: '☿',
   Jupiter: '♃', Venus: '♀', Saturn: '♄', Rahu: '☊', Ketu: '☋',
 };
 
-// ── Month name → number ───────────────────────────────────────────────────────
+// Zodiac sign → decorative emoji
+const SIGN_EMOJI = {
+  Aries: '♈', Taurus: '♉', Gemini: '♊', Cancer: '♋',
+  Leo: '♌', Virgo: '♍', Libra: '♎', Scorpio: '♏',
+  Sagittarius: '♐', Capricorn: '♑', Aquarius: '♒', Pisces: '♓',
+};
+
 const MONTHS = [
   'January','February','March','April','May','June',
   'July','August','September','October','November','December'
 ];
 
 // ============================================================
-//  VedAstro Edge Function call
+//  VedAstro API helpers
 // ============================================================
+const VEDASTRO_BASE = 'https://api.vedastro.org/api/Calculate';
+
 /**
- * Calls the vedastro-predictions edge function.
- *
- * @param {string} location  City name, e.g. "Mumbai"
- * @param {string} time      HH:MM (24-hour)
- * @param {string} date      DD/MM/YYYY
- * @param {'raw'|'rich'} mode
- * @returns {Promise<{ positions: Array, richSummary: string }>}
+ * Build the standard VedAstro URL segment for a birth time.
+ * date format expected: DD/MM/YYYY (already pre-formatted)
+ * time format expected: HH:MM  (24-hour, already pre-formatted)
  */
-async function fetchVedAstroData(location, time, date, mode = 'raw') {
-  const { data, error } = await supabase.functions.invoke('vedastro-predictions', {
-    body: { location, time, date, timezone: '+05:30', maxPerCategory: 4, mode },
-  });
-
-  if (error) throw new Error(`Edge function error: ${error.message}`);
-
-  if (mode === 'rich') {
-    return { positions: [], richSummary: data.summary ?? '' };
-  }
-
-  // Parse raw VedAstro payload into the positions shape the UI expects
-  const payload = data?.Payload ?? [];
-  const positions = parsePositions(payload);
-  return { positions, richSummary: '' };
+function buildTimeSegment(location, time, date, timezone = '+05:30') {
+  const encLocation = encodeURIComponent(location);
+  const encTz = timezone.replace(/\+/g, '%2B');
+  // date may contain slashes — no extra encoding needed for the path
+  return `Location/${encLocation}/Time/${time}/${date}/${encTz}`;
 }
 
 /**
- * Parses the raw VedAstro Payload array into the flat positions array
- * the chart renderer and table expect.
- *
- * VedAstro prediction items don't directly give planet positions —
- * we pull them from the Name/Tags fields when available, or fall back
- * to deriving a minimal set so the wheel always renders something.
- *
- * If your edge function returns a richer structure (e.g. planet positions
- * as a separate endpoint), swap this function out.
+ * Fetch a single planet's sign (Rasi D1).
+ * Returns { sign: 'Sagittarius', degStr: '18° 8\' 17' } or null.
  */
-function parsePositions(payload) {
-  // Build a planet → {sign, house, deg} map from prediction Names like
-  // "Sun in Aries" or tags that include planet names.
-  const found = new Map();
+async function fetchPlanetSign(planetName, timeSegment) {
+  const url = `${VEDASTRO_BASE}/PlanetRasiD1Sign/Planet/${planetName}/${timeSegment}/Ayanamsa/RAMAN`;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const data = await res.json();
+  if (data?.Status !== 'Pass') return null;
+  const p = data?.Payload?.PlanetRasiD1Sign;
+  if (!p) return null;
+  return {
+    sign: p.Name,
+    degStr: p.DegreesIn?.DegreeMinuteSecond ?? '0° 0\' 0',
+  };
+}
 
-  for (const item of payload) {
-    const name = item.Name ?? '';
-    // Match patterns like "Sun in Aries" or "Moon in 5th House"
-    const signMatch  = name.match(/^(\w+)\s+in\s+([A-Z][a-z]+)/);
-    const houseMatch = name.match(/House\s+(\d+)/i);
+/**
+ * Fetch which house a planet occupies.
+ * Returns a number 1-12 or null.
+ */
+async function fetchPlanetHouse(planetName, timeSegment) {
+  const url = `${VEDASTRO_BASE}/HousePlanetOccupiesBasedOnSign/Planet/${planetName}/${timeSegment}/Ayanamsa/RAMAN`;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const data = await res.json();
+  if (data?.Status !== 'Pass') return null;
+  const houseStr = data?.Payload?.HousePlanetOccupiesBasedOnSign ?? '';
+  // e.g. "House5" → 5
+  const match = houseStr.match(/(\d+)/);
+  return match ? parseInt(match[1]) : null;
+}
 
-    if (signMatch) {
-      const planetName = signMatch[1];
-      const signName   = signMatch[2];
-      const rashi = RASHIS.find(r => r.startsWith(signName));
-      if (rashi && !found.has(planetName)) {
-        found.set(planetName, {
-          sign:  rashi,
-          house: houseMatch ? parseInt(houseMatch[1]) : 1,
-          deg:   '0° 0\'',
-        });
+/**
+ * Fetch the Ascendant (Lagna) sign from VedAstro using LagnaSignName.
+ * Returns { sign: 'Sagittarius', degStr: '' } or null.
+ */
+async function fetchAscendantSign(timeSegment) {
+  // LagnaSignName returns the rising sign name as a plain string
+  const url = `${VEDASTRO_BASE}/LagnaSignName/${timeSegment}/Ayanamsa/RAMAN`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data?.Status !== 'Pass') return null;
+    const signName = data?.Payload?.LagnaSignName;
+    if (!signName) return null;
+    return { sign: signName, degStr: '' };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch all 9 planet positions in parallel.
+ * Returns an array of position objects: { planet, sign, house, deg }
+ */
+async function fetchAllPlanetPositions(location, time, date, timezone = '+05:30') {
+  const timeSegment = buildTimeSegment(location, time, date, timezone);
+
+  // Fetch planet data + ascendant simultaneously
+  const [planetResults, ascendant] = await Promise.all([
+    Promise.all(
+      PLANET_API_NAMES.map(async (planetName, i) => {
+        try {
+          const [signData, house] = await Promise.all([
+            fetchPlanetSign(planetName, timeSegment),
+            fetchPlanetHouse(planetName, timeSegment),
+          ]);
+
+          const signLabel = signData
+            ? (SIGN_NAME_MAP[signData.sign] ?? signData.sign)
+            : RASHIS[i % 12];
+
+          // Convert "18° 8' 17" to "18° 8'"
+          const degFormatted = signData?.degStr
+            ? signData.degStr.replace(/(\d+°\s*\d+').*/, '$1')
+            : '0° 0\'';
+
+          return {
+            planet:    PLANET_DISPLAY[planetName],
+            sign:      signLabel,
+            house:     house ?? ((i % 12) + 1),
+            deg:       degFormatted,
+            _rawSign:  signData?.sign ?? '',   // raw English name for emoji lookup
+          };
+        } catch {
+          return {
+            planet:   PLANET_DISPLAY[planetName],
+            sign:     RASHIS[i % 12],
+            house:    (i % 12) + 1,
+            deg:      '0° 0\'',
+            _rawSign: '',
+          };
+        }
+      })
+    ),
+    fetchAscendantSign(timeSegment),
+  ]);
+
+  // Attach ascendant info to the result set so the banner can use it
+  planetResults._ascendant = ascendant;
+  return planetResults;
+}
+
+// ============================================================
+//  VedAstro predictions (for AI context)
+// ============================================================
+const _kUsefulTags = [
+  'Personality', 'General', 'Career', 'Finance', 'Relationships',
+  'Marriage', 'Family', 'Education', 'Spirituality', 'Travel',
+  'Luck', 'Character', 'Health', 'Mind', 'Intelligence',
+];
+
+const _kBlockList = [
+  'Deformity', 'Disease', 'Evil', 'Poison', 'Punishment',
+  'Imprisonment', 'Death', 'Accident',
+];
+
+async function getRichPredictions({ location, time, date, maxPerCategory = 4, timezone = '+05:30' }) {
+  try {
+    const encLocation = encodeURIComponent(location);
+    const encTz = timezone.replace(/\+/g, '%2B');
+    const urlStr =
+      `${VEDASTRO_BASE}/HoroscopePredictions/` +
+      `Location/${encLocation}/Time/${time}/${date}/${encTz}/Ayanamsa/RAMAN`;
+
+    const response = await fetch(urlStr);
+    if (!response.ok) return '';
+    const data = await response.json();
+    const payload = data?.Payload;
+    if (!payload || !Array.isArray(payload) || payload.length === 0) return '';
+
+    const grouped = {};
+    for (const item of payload) {
+      const weight = typeof item.Weight === 'number' ? item.Weight : 0.0;
+      if (weight < 0) continue;
+
+      const name = item.Name || '';
+      if (_kBlockList.some(b => name.includes(b))) continue;
+
+      const tags = Array.isArray(item.Tags) ? item.Tags : [];
+      const desc = (item.Description || '').trim();
+      if (desc.length < 20) continue;
+
+      const bucket = tags.find(t => _kUsefulTags.includes(t)) || 'General';
+      if (!grouped[bucket]) grouped[bucket] = [];
+      if (grouped[bucket].length < maxPerCategory) {
+        grouped[bucket].push(desc);
       }
     }
-  }
 
-  // Map to UI shape; fill any missing planets with placeholder data
-  return PLANETS_LIST.map((label, i) => {
-    const key = label.split(' ')[0]; // e.g. "Sun" from "Sun ☉"
-    const pos = found.get(key);
-    return {
-      planet: label,
-      sign:   pos?.sign  ?? RASHIS[i % 12],
-      house:  pos?.house ?? (i % 12) + 1,
-      deg:    pos?.deg   ?? '0° 0\'',
-    };
-  });
+    if (Object.keys(grouped).length === 0) return '';
+
+    let result = '';
+    for (const [key, value] of Object.entries(grouped)) {
+      result += `[${key}]\n`;
+      for (const d of value) result += `- ${d}\n`;
+    }
+    return result.trim();
+  } catch (e) {
+    console.error('getRichPredictions error:', e);
+    return '';
+  }
 }
 
 // ============================================================
@@ -133,16 +262,16 @@ function parsePositions(payload) {
 // ============================================================
 function deriveChart(day, month, year, hour, min) {
   const seed = day + month * 31 + year + hour * 5 + min;
-  return PLANETS_LIST.map((planet, i) => ({
-    planet,
-    sign:  RASHIS[(seed + i * 7) % 12],
-    house: ((seed + i * 3) % 12) + 1,
-    deg:   `${(seed * (i + 1)) % 30}° ${(seed * (i + 2)) % 60}'`,
+  return PLANET_API_NAMES.map((key, i) => ({
+    planet: PLANET_DISPLAY[key],
+    sign:   RASHIS[(seed + i * 7) % 12],
+    house:  ((seed + i * 3) % 12) + 1,
+    deg:    `${(seed * (i + 1)) % 30}° ${(seed * (i + 2)) % 60}'`,
   }));
 }
 
 // ============================================================
-//  SVG Kundli Wheel  (unchanged from original)
+//  SVG Kundli Wheel
 // ============================================================
 function drawChart(positions) {
   const ns = 'http://www.w3.org/2000/svg';
@@ -205,7 +334,7 @@ function drawChart(positions) {
 
   // Planet dots
   positions.slice(0, 7).forEach((p, i) => {
-    const houseIdx = p.house - 1;
+    const houseIdx = Math.max(0, (p.house || 1) - 1);
     const angle = ((houseIdx * 30 + 10 + i * 3 - 90) * Math.PI) / 180;
     const pr = r * 0.58;
     const px = cx + Math.cos(angle) * pr;
@@ -224,7 +353,6 @@ function drawChart(positions) {
     sym.setAttribute('font-size', '9');
     sym.setAttribute('fill', '#fff');
     sym.setAttribute('font-family', 'DM Sans, sans-serif');
-    // Use known symbol, or first char of label as fallback
     const planetKey = p.planet.split(' ')[0];
     sym.textContent = PLANET_SYMBOLS[planetKey] ?? p.planet[0];
     svg.appendChild(sym);
@@ -260,17 +388,14 @@ function renderPlanetTable(positions) {
 }
 
 // ============================================================
-//  AI Insights  — prefers richSummary from VedAstro when available
+//  AI Insights
 // ============================================================
 async function renderInsights(name, positions, richSummary = '') {
   const insightsList = document.getElementById('insightsList');
   if (!insightsList) return;
   insightsList.innerHTML = '<div style="color:var(--text-light);font-size:13px;padding:12px 0;">✨ Generating insights from the cosmos…</div>';
 
-  // Build chart context for Gemini
   const posStr = positions.map(p => `${p.planet} in ${p.sign} (House ${p.house})`).join(', ');
-
-  // Use real VedAstro predictions in the prompt when available
   const vedAstroContext = richSummary
     ? `\n\nVedAstro predictions for this chart:\n${richSummary}`
     : '';
@@ -293,7 +418,6 @@ async function renderInsights(name, positions, richSummary = '') {
       </div>
     `).join('');
   } catch {
-    // Graceful fallback
     insightsList.innerHTML = positions.slice(0, 4).map((p, i) => {
       const texts = [
         `Your ${p.planet} in ${p.sign} (House ${p.house}) brings a unique energetic influence to your core identity and self-expression.`,
@@ -304,6 +428,46 @@ async function renderInsights(name, positions, richSummary = '') {
       return `<div class="insight-item"><strong>${p.planet} — ${p.sign}</strong><br>${texts[i]}</div>`;
     }).join('');
   }
+}
+
+// ============================================================
+//  Sun Sign Banner (Big Three: Sun · Moon · Ascendant)
+// ============================================================
+
+/**
+ * Populate the three sign pills above the chart.
+ * @param {Array}       positions  — fetched planet positions array
+ * @param {object|null} ascendant  — { sign, degStr } from fetchAscendantSign
+ */
+function renderSunSignBanner(positions, ascendant) {
+  // Sun is always index 0, Moon is index 1 in PLANET_API_NAMES order
+  const sun  = positions[0];  // Sun ☉
+  const moon = positions[1];  // Moon ☽
+
+  const sunSign  = sun?._rawSign  || '';
+  const moonSign = moon?._rawSign || '';
+  const lagnaSign = ascendant?.sign || '';
+
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+  // Sun pill
+  setEl('sunEmoji',    SIGN_EMOJI[sunSign]  || '☉');
+  setEl('sunSignName', sunSign  || sun?.sign  || '—');
+  setEl('sunDeg',      sun?.deg ? `${sun.deg} in ${sunSign}` : '');
+
+  // Moon pill
+  setEl('moonEmoji',    SIGN_EMOJI[moonSign] || '☽');
+  setEl('moonSignName', moonSign || moon?.sign || '—');
+  setEl('moonDeg',      moon?.deg ? `${moon.deg} in ${moonSign}` : '');
+
+  // Lagna / Ascendant pill
+  const lagnaLabel = SIGN_NAME_MAP[lagnaSign] ?? lagnaSign;
+  const lagnaDegStr = ascendant?.degStr
+    ? ascendant.degStr.replace(/(\d+°\s*\d+').*/, '$1')
+    : '';
+  setEl('lagnaEmoji',    SIGN_EMOJI[lagnaSign] || '⬆');
+  setEl('lagnaSignName', lagnaSign || '—');
+  setEl('lagnaDeg',      lagnaDegStr ? `${lagnaDegStr} Rising` : 'Ascendant');
 }
 
 // ============================================================
@@ -319,13 +483,21 @@ if (kundliForm) {
     const monthStr = document.getElementById('kMonth').value;
     const month    = MONTHS.indexOf(monthStr) + 1;   // 1-based
     const year     = parseInt(document.getElementById('kYear').value);
-    const hour     = parseInt(document.getElementById('kHour').value) || 12;
+    let   hour     = parseInt(document.getElementById('kHour').value) || 12;
     const min      = parseInt(document.getElementById('kMin').value)  || 0;
-    const city     = document.getElementById('kCity')?.value.trim() || 'Mumbai';
+    const ampm     = document.getElementById('kAmpm')?.value ?? 'AM';
+    const city     = document.getElementById('kPlace')?.value.trim() || 'Mumbai';
 
     if (!name || !day || !month || !year) return;
 
-    // Build date / time strings for VedAstro
+    // Convert 12-hour AM/PM → 24-hour
+    if (ampm === 'AM') {
+      if (hour === 12) hour = 0;      // 12 AM = midnight = 00:xx
+    } else {
+      if (hour !== 12) hour += 12;    // PM: add 12 except for 12 PM
+    }
+
+    // Build date/time strings for VedAstro  (DD/MM/YYYY  HH:MM)
     const dateStr = `${String(day).padStart(2,'0')}/${String(month).padStart(2,'0')}/${year}`;
     const timeStr = `${String(hour).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
 
@@ -333,18 +505,18 @@ if (kundliForm) {
     document.getElementById('kundliFormCard').style.display = 'none';
     document.getElementById('kundliLoading').style.display  = 'flex';
 
-    let positions   = [];
-    let richSummary = '';
+    let positions    = [];
+    let richSummary  = '';
     let usedFallback = false;
 
     try {
-      // 1. Fetch raw positions for the wheel + table
-      const rawResult  = await fetchVedAstroData(city, timeStr, dateStr, 'raw');
-      positions = rawResult.positions;
-
-      // 2. Fetch rich summary in parallel for the insights prompt
-      const richResult = await fetchVedAstroData(city, timeStr, dateStr, 'rich');
-      richSummary = richResult.richSummary;
+      // Fetch real planetary positions AND predictions in parallel
+      const [posResult, richResult] = await Promise.all([
+        fetchAllPlanetPositions(city, timeStr, dateStr),
+        getRichPredictions({ location: city, time: timeStr, date: dateStr }),
+      ]);
+      positions   = posResult;
+      richSummary = richResult;
     } catch (err) {
       console.warn('VedAstro API unavailable, using fallback chart:', err);
       positions    = deriveChart(day, month, year, hour, min);
@@ -363,13 +535,13 @@ if (kundliForm) {
     }
 
     if (usedFallback) {
-      // Subtle notice — doesn't block the user experience
       const notice = document.createElement('p');
       notice.style.cssText = 'font-size:11px;color:var(--text-light);text-align:center;margin-top:4px;';
       notice.textContent = '⚠ Using estimated chart positions (API unavailable)';
       svgWrap?.after(notice);
     }
 
+    renderSunSignBanner(positions, positions._ascendant ?? null);
     renderPlanetTable(positions);
     renderInsights(name, positions, richSummary);
 
