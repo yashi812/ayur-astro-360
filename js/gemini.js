@@ -1,44 +1,39 @@
 // ============================================================
 //  gemini.js — Google Gemini AI integration + Chat UI
+//  (now proxied through a Supabase Edge Function, so no API
+//   key is ever exposed in the browser)
 // ============================================================
-import { requireAuth, signOut } from '../supabase.js';
+import { requireAuth, signOut, supabase } from '../supabase.js';
 
-const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY';
-const GEMINI_URL     = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-
-const SYSTEM_CONTEXT = `You are AyurGuru — a wise, compassionate guide specialising in Ayurveda, Vedic astrology, holistic wellness, and Indian spirituality. 
-You give personalised, practical guidance rooted in ancient wisdom. 
-Keep responses warm, insightful, and concise (2-4 paragraphs max). 
-Use relevant Sanskrit terms with brief explanations. 
-Always encourage self-care and spiritual growth.`;
+// Point this at your deployed edge function.
+// Format: https://<project-ref>.supabase.co/functions/v1/gemini-chat
+const EDGE_FUNCTION_URL = 'https://okxhfskixhdvuoojeske.supabase.co/functions/v1/gemini-chat';
 
 /**
- * Send a prompt to Gemini and return the text response.
+ * Send a prompt to the gemini-chat edge function and return the text response.
  * @param {string} prompt
  * @param {Array}  history  — [{role:'user'|'model', parts:[{text}]}]
  */
 export async function askGemini(prompt, history = []) {
-  const contents = [
-    ...history,
-    { role: 'user', parts: [{ text: prompt }] }
-  ];
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('You must be signed in to chat.');
 
-  const res = await fetch(GEMINI_URL, {
+  const res = await fetch(EDGE_FUNCTION_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_CONTEXT }] },
-      contents
-    })
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`
+    },
+    body: JSON.stringify({ prompt, history })
   });
 
+  const data = await res.json().catch(() => ({}));
+
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.error?.message || `Gemini error ${res.status}`);
+    throw new Error(data?.error || `Server error ${res.status}`);
   }
 
-  const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || 'I could not generate a response. Please try again.';
+  return data.reply || 'I could not generate a response. Please try again.';
 }
 
 // ============================================================
@@ -46,18 +41,15 @@ export async function askGemini(prompt, history = []) {
 // ============================================================
 const chatMessages = document.getElementById('chatMessages');
 if (!chatMessages) {
-  // gemini.js loaded from another page (e.g. kundli.js import) — skip UI init
+  // gemini.js loaded from another page — skip UI init
 } else {
-  // ---- Auth guard ----
   (async () => { await requireAuth(); })();
   document.getElementById('signoutBtn')?.addEventListener('click', signOut);
   document.getElementById('hamburger')?.addEventListener('click', () => document.getElementById('sidebar')?.classList.toggle('open'));
 
-  // ---- State ----
   let conversationHistory = [];
   let activeTopic = 'general';
 
-  // ---- Topic sidebar ----
   document.querySelectorAll('.chat-topic-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.chat-topic-btn').forEach(b => b.classList.remove('active'));
@@ -66,12 +58,10 @@ if (!chatMessages) {
     });
   });
 
-  // ---- Suggested chips ----
   document.querySelectorAll('.chip').forEach(chip => {
     chip.addEventListener('click', () => sendMessage(chip.dataset.q));
   });
 
-  // ---- Append bubble ----
   function appendBubble(role, text) {
     const div = document.createElement('div');
     div.className = `chat-bubble ${role}`;
@@ -89,7 +79,6 @@ if (!chatMessages) {
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  // ---- Typing indicator ----
   function showTyping() {
     const div = document.createElement('div');
     div.className = 'chat-bubble ai';
@@ -102,7 +91,6 @@ if (!chatMessages) {
     document.getElementById('typingIndicator')?.remove();
   }
 
-  // ---- Send message ----
   async function sendMessage(text) {
     text = text?.trim();
     if (!text) return;
@@ -112,7 +100,6 @@ if (!chatMessages) {
     if (input) input.value = '';
     if (sendBtn) sendBtn.disabled = true;
 
-    // Hide suggested chips after first message
     document.querySelector('.welcome-bubble')?.remove();
 
     appendBubble('user', text);
@@ -130,38 +117,32 @@ if (!chatMessages) {
       conversationHistory.push({ role: 'user',  parts: [{ text: fullPrompt }] });
       conversationHistory.push({ role: 'model', parts: [{ text: reply }] });
 
-      // Trim history to last 20 turns
       if (conversationHistory.length > 20) conversationHistory = conversationHistory.slice(-20);
 
-      // Stats
       const prev = parseInt(localStorage.getItem('aa_chats') || '0');
       localStorage.setItem('aa_chats', prev + 1);
 
     } catch (err) {
       hideTyping();
-      appendBubble('ai', `🙏 I apologise — ${err.message}. Please check your Gemini API key in gemini.js.`);
+      appendBubble('ai', `🙏 I apologise — ${err.message}. Please try again in a moment.`);
     }
 
     if (sendBtn) sendBtn.disabled = false;
   }
 
-  // ---- Send button ----
   document.getElementById('sendBtn')?.addEventListener('click', () => {
     sendMessage(document.getElementById('chatInput')?.value);
   });
 
-  // ---- Enter key ----
   document.getElementById('chatInput')?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(e.target.value); }
   });
 
-  // ---- Auto-resize textarea ----
   document.getElementById('chatInput')?.addEventListener('input', (e) => {
     e.target.style.height = 'auto';
     e.target.style.height = Math.min(e.target.scrollHeight, 140) + 'px';
   });
 
-  // ---- Clear chat ----
   document.getElementById('clearChatBtn')?.addEventListener('click', () => {
     conversationHistory = [];
     if (chatMessages) chatMessages.innerHTML = '<div style="color:var(--text-light);text-align:center;padding:32px;font-size:14px;">Chat cleared — start a new conversation 🌿</div>';
