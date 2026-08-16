@@ -23,7 +23,8 @@
     .quiz-nav{display:flex;justify-content:space-between;margin-top:24px;gap:12px;}
     .dosha-result{text-align:center;padding:32px;}
     .dosha-big{font-family:'Playfair Display',serif;font-size:56px;color:var(--green-deep);margin-bottom:8px;}
-    .dosha-sub{font-size:15px;color:var(--text-mid);margin-bottom:28px;}
+    .dosha-sub{font-size:15px;color:var(--text-mid);margin-bottom:16px;}
+    .dosha-blurb{font-size:13.5px;color:var(--text-mid);line-height:1.6;max-width:460px;margin:0 auto 24px;}
     .remedy-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;margin-top:20px;}
     .remedy-card{padding:20px;border-radius:var(--radius-md);background:rgba(30,92,46,.04);border:1px solid rgba(30,92,46,.08);}
     .remedy-icon{font-size:28px;margin-bottom:10px;}
@@ -76,14 +77,14 @@
           <div class="card-title">🌿 Discover Your Prakriti</div>
           <p class="card-subtitle" style="margin-bottom:20px;">Answer these questions to reveal your Ayurvedic constitution</p>
           <div class="quiz-progress"><div class="quiz-progress-fill" id="quizProgressFill" style="width:0%"></div></div>
-          <div id="quizStepLabel" style="font-size:12px;color:var(--text-light);margin-bottom:16px;">Question 1 of 7</div>
+          <div id="quizStepLabel" style="font-size:12px;color:var(--text-light);margin-bottom:16px;">Question 1 of 8</div>
 
           <!-- Steps populated by JS -->
           <div id="quizSteps"></div>
 
           <div class="quiz-nav">
             <button class="btn btn-outline btn-sm" id="prevBtn" style="display:none;">← Back</button>
-            <button class="btn btn-primary btn-sm" id="nextBtn">Next →</button>
+            <button class="btn btn-primary btn-sm" id="nextBtn" disabled>Next →</button>
           </div>
         </div>
 
@@ -92,6 +93,7 @@
           <div class="card dosha-result">
             <div class="dosha-big" id="doshaName">Vata</div>
             <div class="dosha-sub" id="doshaSub"></div>
+            <p class="dosha-blurb" id="doshaBlurb"></p>
             <div class="dosha-bars-result">
               <div class="dosha-bar-wrap">
                 <div class="dosha-bar-label"><span>🌬 Vata</span><span id="vataVal">—</span></div>

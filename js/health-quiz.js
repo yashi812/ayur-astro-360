@@ -6,7 +6,7 @@
     {
       q: 'What is your natural body frame?',
       options: [
-        { text: 'Thin, light, hard to gain weight', v: 2, p: 0, k: 0 },
+        { text: 'Thin, light, hard to gain weight, weak joints', v: 2, p: 0, k: 0 },
         { text: 'Medium, muscular, moderate weight', v: 0, p: 2, k: 0 },
         { text: 'Large frame, tends to gain weight easily', v: 0, p: 0, k: 2 },
       ]
@@ -14,31 +14,31 @@
     {
       q: 'How is your skin naturally?',
       options: [
-        { text: 'Dry, rough, thin', v: 2, p: 0, k: 0 },
-        { text: 'Oily, sensitive, prone to redness', v: 0, p: 2, k: 0 },
-        { text: 'Smooth, thick, moist', v: 0, p: 0, k: 2 },
+        { text: 'Dry, rough, thin, cold to the touch', v: 2, p: 0, k: 0 },
+        { text: 'Oily, sensitive, prone to redness or rashes', v: 0, p: 2, k: 0 },
+        { text: 'Smooth, thick, moist, soft', v: 0, p: 0, k: 2 },
       ]
     },
     {
       q: 'How is your digestion?',
       options: [
-        { text: 'Irregular — sometimes strong, sometimes not', v: 2, p: 0, k: 0 },
-        { text: 'Strong — I feel hungry at regular times', v: 0, p: 2, k: 0 },
-        { text: 'Slow but steady — rarely starving', v: 0, p: 0, k: 2 },
+        { text: 'Irregular — sometimes strong, sometimes not, prone to gas', v: 2, p: 0, k: 0 },
+        { text: 'Strong — sharp appetite, prone to acidity if I skip meals', v: 0, p: 2, k: 0 },
+        { text: 'Slow but steady — rarely feel starving', v: 0, p: 0, k: 2 },
       ]
     },
     {
       q: 'How do you handle stress?',
       options: [
-        { text: 'Tend to worry and feel anxious', v: 2, p: 0, k: 0 },
-        { text: 'Irritated, frustrated — need to solve it', v: 0, p: 2, k: 0 },
-        { text: 'Stay calm but may become withdrawn', v: 0, p: 0, k: 2 },
+        { text: 'Tend to worry, overthink, and feel anxious', v: 2, p: 0, k: 0 },
+        { text: 'Irritated, critical, frustrated — need to fix it now', v: 0, p: 2, k: 0 },
+        { text: 'Stay calm but may withdraw or get complacent', v: 0, p: 0, k: 2 },
       ]
     },
     {
       q: 'How is your sleep?',
       options: [
-        { text: 'Light, interrupted, or restless', v: 2, p: 0, k: 0 },
+        { text: 'Light, interrupted, or restless — racing mind at night', v: 2, p: 0, k: 0 },
         { text: 'Moderate — I wake up easily if disturbed', v: 0, p: 2, k: 0 },
         { text: 'Deep, long, and heavy — hard to wake up', v: 0, p: 0, k: 2 },
       ]
@@ -46,45 +46,53 @@
     {
       q: 'What is your natural temperament?',
       options: [
-        { text: 'Creative, enthusiastic, but easily distracted', v: 2, p: 0, k: 0 },
-        { text: 'Focused, driven, opinionated', v: 0, p: 2, k: 0 },
-        { text: 'Calm, loving, supportive', v: 0, p: 0, k: 2 },
+        { text: 'Creative, enthusiastic, quick learner, but easily distracted', v: 2, p: 0, k: 0 },
+        { text: 'Focused, driven, opinionated, natural leader', v: 0, p: 2, k: 0 },
+        { text: 'Calm, loving, patient, and supportive', v: 0, p: 0, k: 2 },
       ]
     },
     {
       q: 'How do you prefer the weather?',
       options: [
-        { text: 'Love warmth — hate cold and wind', v: 2, p: 0, k: 0 },
-        { text: 'Love cool air — dislike heat and sun', v: 0, p: 2, k: 0 },
-        { text: 'Like any weather but dislike humidity', v: 0, p: 0, k: 2 },
+        { text: 'Love warmth — hate cold, wind, and dryness', v: 2, p: 0, k: 0 },
+        { text: 'Love cool air — dislike heat and strong sun', v: 0, p: 2, k: 0 },
+        { text: 'Like most weather but dislike damp, humid, cold days', v: 0, p: 0, k: 2 },
+      ]
+    },
+    {
+      q: 'What best describes your memory and thinking style?',
+      options: [
+        { text: 'Quick to learn, quick to forget; weaker willpower', v: 2, p: 0, k: 0 },
+        { text: 'Sharp, precise memory; strong decision-making', v: 0, p: 2, k: 0 },
+        { text: 'Slower to learn but rarely forget once I do', v: 0, p: 0, k: 2 },
       ]
     },
   ];
 
   const REMEDIES = {
     Vata: [
-      { icon: '🌻', title: 'Warm Sesame Oil Massage', text: 'Daily abhyanga with warm sesame oil grounds and nourishes Vata, calming the nervous system.' },
-      { icon: '🍲', title: 'Warm, Cooked Foods', text: 'Favour warm soups, ghee-cooked grains, and root vegetables. Avoid raw, cold, or dry foods.' },
-      { icon: '🌙', title: 'Consistent Routine', text: 'A stable daily schedule for sleep, meals, and meditation deeply balances Vata energy.' },
-      { icon: '📿', title: 'Brahmi & Ashwagandha', text: 'These adaptogens calm the mind, reduce anxiety, and strengthen the nervous system.' },
-      { icon: '🧘', title: 'Gentle Yoga & Pranayama', text: 'Slow, grounding yoga poses and Nadi Shodhana breathing soothe scattered Vata energy.' },
-      { icon: '☕', title: 'Warm Herbal Teas', text: 'Ginger, licorice, and cardamom tea after meals aids digestion and warms the body.' },
+      { icon: '🌻', title: 'Warm Sesame Oil Massage', text: 'Daily abhyanga with warm sesame oil calms Vata\'s dry, cold, restless qualities and soothes the nervous system.' },
+      { icon: '🍲', title: 'Warm, Cooked, Grounding Foods', text: 'Favour warm soups, ghee-cooked grains, and sweet, sour, or heavy fruits like bananas and avocados. Avoid raw, cold, or dry foods.' },
+      { icon: '🌙', title: 'Consistent Daily Routine', text: 'Rise with the sunrise, keep steady times for meals and sleep, and never skip breakfast — regularity is the strongest medicine for Vata.' },
+      { icon: '📿', title: 'Warming Herbal Teas', text: 'Cardamom, cumin, ginger, and cinnamon teas after meals aid digestion and counter Vata\'s tendency toward gas and cramping.' },
+      { icon: '🧘', title: 'Gentle Yoga & Meditation', text: 'Slow, grounding yoga and calm meditation quiet the overactive mind and ease the worry and sleeplessness Vata is prone to.' },
+      { icon: '☕', title: 'Stay Warm, Avoid Stimulants', text: 'Keep warm in cold weather, reduce caffeine and other stimulants, and get plenty of rest to protect the sensitive Vata digestion.' },
     ],
     Pitta: [
-      { icon: '🥥', title: 'Coconut Oil Cooling', text: 'Coconut oil massage and consumption cools Pitta fire, soothing inflammation and irritation.' },
-      { icon: '🥗', title: 'Cool, Fresh Foods', text: 'Favour sweet fruits, leafy greens, cucumber, and dairy. Reduce spicy, salty, and fermented foods.' },
-      { icon: '🌸', title: 'Rose & Sandalwood', text: 'Rose water and sandalwood paste cool and calm Pitta both physically and emotionally.' },
-      { icon: '🌿', title: 'Aloe Vera & Neem', text: 'These bitter herbs purify the blood and reduce excess heat (Pitta) from the system.' },
-      { icon: '🏊', title: 'Cooling Exercise', text: 'Swimming, walking in nature at dawn or dusk, and moon-gazing pacify fiery Pitta.' },
-      { icon: '🧊', title: 'Coriander & Fennel Tea', text: 'A cooling herbal tea after meals balances digestive fire without overheating.' },
+      { icon: '🥥', title: 'Coconut Oil Cooling Massage', text: 'Daily massage with coconut or sunflower oil cools Pitta\'s internal heat and eases irritation and skin rashes.' },
+      { icon: '🥗', title: 'Cool, Sweet, Bitter Foods', text: 'Favour juicy fruits like melon and plums, bitter greens like kale and asparagus, and cooling spices like coriander and fennel. Reduce spicy, fried, and fermented foods.' },
+      { icon: '🌸', title: 'Cool Water & Moon-Bathing', text: 'A cool swim or bath, and moonlight instead of direct sun, help calm Pitta\'s fiery, workaholic intensity.' },
+      { icon: '🌿', title: 'Reduce Caffeine & Alcohol', text: 'Both are hot and sharp in nature and tend to aggravate Pitta — cutting back helps prevent acidity and hyper-acidity.' },
+      { icon: '🏊', title: 'Exercise in Cool Hours', text: 'Work out in the cool of morning or evening rather than midday heat, and avoid exposure to fumes or chemicals.' },
+      { icon: '🧊', title: 'Early, Regular Sleep', text: 'Aim to be asleep before 10pm, since Pitta runs high from 10pm–2am; a steady meal schedule also keeps digestive fire balanced.' },
     ],
     Kapha: [
-      { icon: '🌶', title: 'Warming Spices', text: 'Use ginger, black pepper, and turmeric generously to stimulate sluggish Kapha digestion.' },
-      { icon: '🏃', title: 'Vigorous Exercise', text: 'Daily brisk walks, dancing, or cardio energise and decongest heavy Kapha energy.' },
-      { icon: '🍯', title: 'Light, Dry Foods', text: 'Favour legumes, leafy greens, and light grains. Reduce dairy, sweets, and heavy foods.' },
-      { icon: '🌱', title: 'Trikatu Formula', text: 'A traditional Ayurvedic blend of ginger, black pepper, and pippali that kindles digestive fire.' },
-      { icon: '☀️', title: 'Morning Sun Ritual', text: 'Rise early (before 6am), exercise, and expose yourself to morning sunlight to lift Kapha.' },
-      { icon: '🫚', title: 'Dry Brushing', text: 'Dry garshana massage with raw silk gloves stimulates lymph and invigorates Kapha energy.' },
+      { icon: '🌶', title: 'Warming, Pungent Spices', text: 'Ginger, black pepper, turmeric, cumin, and fenugreek stimulate the slower Kapha digestion and appetite.' },
+      { icon: '🏃', title: 'Vigorous Daily Exercise', text: 'Kapha types benefit most from consistent, energetic movement to counter a tendency toward heaviness and lethargy.' },
+      { icon: '🍯', title: 'Light, Dry, Warm Foods', text: 'Favour honey, light meals, salads, and pungent, bitter, or astringent foods. Reduce dairy, oil, ghee, sugar, and heavy fried food.' },
+      { icon: '🌱', title: 'Warm Herbal & Spice Teas', text: 'Ginger tea stimulates appetite, and spice teas support digestion and help clear the toxins Kapha tends to accumulate.' },
+      { icon: '☀️', title: 'Early Rising', text: 'Wake before sunrise and get moving early — Kapha is naturally slower to start, so an active morning ritual lifts energy for the day.' },
+      { icon: '🫚', title: 'Dry Brushing (Garshana)', text: 'A brisk dry massage with raw silk gloves before bathing stimulates circulation and helps invigorate sluggish Kapha energy.' },
     ]
   };
 
@@ -157,6 +165,22 @@
 
   prevBtn?.addEventListener('click', () => { if (current > 0) goTo(current - 1); });
 
+  // Short descriptive blurb + governs list, drawn from the reference material
+  const DOSHA_INFO = {
+    Vata: {
+      sub: 'Air & Ether — Creative, Quick, Changeable',
+      blurb: 'Vata governs movement in the body and mind — circulation, breathing, the nervous system, and elimination. Balanced Vata brings creativity and enthusiasm; out of balance it shows up as anxiety, dry skin, and irregular digestion.'
+    },
+    Pitta: {
+      sub: 'Fire & Water — Passionate, Sharp, Driven',
+      blurb: 'Pitta governs transformation — digestion, metabolism, and how the eyes and mind process the world. Balanced Pitta brings sharp intellect and leadership; out of balance it shows up as irritability, acidity, and skin inflammation.'
+    },
+    Kapha: {
+      sub: 'Earth & Water — Calm, Stable, Nurturing',
+      blurb: 'Kapha governs structure and lubrication — muscle, joints, and the body\'s fluids and immunity. Balanced Kapha brings patience and stability; out of balance it shows up as weight gain, congestion, and sluggishness.'
+    }
+  };
+
   function computeResult() {
     scores = { v: 0, p: 0, k: 0 };
     Object.values(answers).forEach(a => { scores.v += a.v; scores.p += a.p; scores.k += a.k; });
@@ -170,9 +194,9 @@
                    : scores.p >= scores.v && scores.p >= scores.k ? 'Pitta'
                    : 'Kapha';
 
-    const subs = { Vata: 'Air & Ether — Creative, Quick, Changeable', Pitta: 'Fire & Water — Passionate, Sharp, Driven', Kapha: 'Earth & Water — Calm, Stable, Nurturing' };
+    const info = DOSHA_INFO[dominant];
 
-    // Save to localStorage & Supabase
+    // Save to localStorage
     localStorage.setItem('aa_dosha', JSON.stringify({ dominant, vata: vataPct, pitta: pittaPct, kapha: kaphaPct }));
 
     // Show result
@@ -181,8 +205,11 @@
     document.getElementById('retakeBtn').style.display     = 'inline-flex';
 
     document.getElementById('doshaName').textContent = dominant;
-    document.getElementById('doshaSub').textContent  = subs[dominant];
+    document.getElementById('doshaSub').textContent  = info.sub;
     document.getElementById('doshaBadge').textContent = `🌿 You are ${dominant} dominant`;
+
+    const blurbEl = document.getElementById('doshaBlurb');
+    if (blurbEl) blurbEl.textContent = info.blurb;
 
     setTimeout(() => {
       document.getElementById('vataBar').style.width   = vataPct  + '%';
