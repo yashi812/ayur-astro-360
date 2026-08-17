@@ -10,11 +10,25 @@ import { requireAuth, signOut, supabase } from '../supabase.js';
 const EDGE_FUNCTION_URL = 'https://okxhfskixhdvuoojeske.supabase.co/functions/v1/gemini-chat';
 
 /**
+ * Read the dosha result saved locally by health-quiz.js.
+ * Returns null if the quiz hasn't been taken yet.
+ */
+function getLocalDoshaResult() {
+  try {
+    const stored = localStorage.getItem('aa_dosha');
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Send a prompt to the gemini-chat edge function and return the text response.
  * @param {string} prompt
  * @param {Array}  history  — [{role:'user'|'model', parts:[{text}]}]
+ * @param {Object|null} doshaResult — { dominant, vata, pitta, kapha } or null
  */
-export async function askGemini(prompt, history = []) {
+export async function askGemini(prompt, history = [], doshaResult = null) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('You must be signed in to chat.');
 
@@ -24,7 +38,7 @@ export async function askGemini(prompt, history = []) {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${session.access_token}`
     },
-    body: JSON.stringify({ prompt, history })
+    body: JSON.stringify({ prompt, history, doshaResult })
   });
 
   const data = await res.json().catch(() => ({}));
@@ -43,12 +57,29 @@ const chatMessages = document.getElementById('chatMessages');
 if (!chatMessages) {
   // gemini.js loaded from another page — skip UI init
 } else {
-  (async () => { await requireAuth(); })();
+  (async () => { await requireAuth(); initDoshaBadge(); })();
   document.getElementById('signoutBtn')?.addEventListener('click', signOut);
   document.getElementById('hamburger')?.addEventListener('click', () => document.getElementById('sidebar')?.classList.toggle('open'));
 
   let conversationHistory = [];
   let activeTopic = 'general';
+
+  // ---- Show the user's dosha in the welcome bubble, if available ----
+  function initDoshaBadge() {
+    const badgeEl = document.getElementById('doshaBadgeInline');
+    if (!badgeEl) return;
+
+    const result = getLocalDoshaResult();
+    if (result) {
+      badgeEl.textContent = `🌿 Guidance personalised for your ${result.dominant} constitution`;
+      badgeEl.style.display = 'block';
+    } else {
+      badgeEl.textContent = `🌿 Take the Dosha Quiz on Health & Dosha for personalised guidance`;
+      badgeEl.style.display = 'block';
+      badgeEl.style.cursor = 'pointer';
+      badgeEl.addEventListener('click', () => { window.location.href = 'health.html'; });
+    }
+  }
 
   document.querySelectorAll('.chat-topic-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -110,7 +141,8 @@ if (!chatMessages) {
     showTyping();
 
     try {
-      const reply = await askGemini(fullPrompt, conversationHistory);
+      const doshaResult = getLocalDoshaResult();
+      const reply = await askGemini(fullPrompt, conversationHistory, doshaResult);
       hideTyping();
       appendBubble('ai', reply);
 

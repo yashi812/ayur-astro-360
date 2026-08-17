@@ -78,21 +78,38 @@ function renderForecast() {
   if (sub) sub.textContent = planet.desc;
 }
 
-// ---- Dosha bars ----
-function renderDoshaBars(profile) {
-  const vata  = profile?.vata  || 40;
-  const pitta = profile?.pitta || 35;
-  const kapha = profile?.kapha || 25;
-  const total = vata + pitta + kapha;
+// ---- Dosha bars (reads the result health-quiz.js saved to localStorage) ----
+function renderDoshaBars() {
+  const vataBar  = document.getElementById('vataBar');
+  const pittaBar = document.getElementById('pittaBar');
+  const kaphaBar = document.getElementById('kaphaBar');
+  const vataPct  = document.getElementById('vataPct');
+  const pittaPct = document.getElementById('pittaPct');
+  const kaphaPct = document.getElementById('kaphaPct');
+
+  if (!vataBar) return; // widget not on this page
+
+  let result = null;
+  const stored = localStorage.getItem('aa_dosha');
+  if (stored) {
+    try { result = JSON.parse(stored); } catch { result = null; }
+  }
+
+  // No quiz taken yet — leave the "—" placeholders as-is
+  if (!result) return;
+
+  const vata  = result.vata  ?? 0;
+  const pitta = result.pitta ?? 0;
+  const kapha = result.kapha ?? 0;
+
+  if (vataPct)  vataPct.textContent  = vata  + '%';
+  if (pittaPct) pittaPct.textContent = pitta + '%';
+  if (kaphaPct) kaphaPct.textContent = kapha + '%';
 
   setTimeout(() => {
-    ['vata','pitta','kapha'].forEach(d => {
-      const pct   = Math.round((({ vata, pitta, kapha })[d] / total) * 100);
-      const bar   = document.getElementById(`${d}Bar`);
-      const label = document.getElementById(`${d}Pct`);
-      if (bar)   bar.style.width   = pct + '%';
-      if (label) label.textContent = pct + '%';
-    });
+    if (vataBar)  vataBar.style.width  = vata  + '%';
+    if (pittaBar) pittaBar.style.width = pitta + '%';
+    if (kaphaBar) kaphaBar.style.width = kapha + '%';
   }, 300);
 }
 
@@ -137,18 +154,5 @@ function renderRecent() {
   renderForecast();
   renderStats();
   renderRecent();
-
-  // If there's an authenticated user, try to load dosha from profile table.
-  if (user && user.id) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('vata, pitta, kapha')
-      .eq('id', user.id)
-      .single();
-
-    renderDoshaBars(profile || {});
-  } else {
-    // No user — render default/sample dosha values without requiring sign-in
-    renderDoshaBars({});
-  }
+  renderDoshaBars();
 })();
