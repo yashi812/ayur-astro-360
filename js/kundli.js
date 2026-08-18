@@ -1016,6 +1016,7 @@ if (kundliForm) {
       renderKundliResult(name, positions, richSummary, usedFallback, birthLatLng);
     } catch (err) {
       console.warn('generate-kundli edge function unavailable, using fallback chart:', err);
+      toast('Error: ' + err.message + '. Using offline fallback chart.', 'error');
       positions    = deriveChart(day, month, year, hour24, min);
       usedFallback = true;
       birthLatLng  = null;
@@ -1047,6 +1048,19 @@ if (kundliForm) {
       window.history.replaceState({}, '', newUrl.toString());
     } catch (e) { /* non-fatal */ }
   });
+}
+
+function toast(msg, type = 'info') {
+  const c = document.getElementById('toast-container');
+  if (!c) return;
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => {
+    t.style.animation = 'toastOut .35s ease forwards';
+    setTimeout(() => t.remove(), 350);
+  }, 4500);
 }
 
 // ---- Reset chart ----

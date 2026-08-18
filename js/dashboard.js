@@ -1,7 +1,7 @@
 // ============================================================
 //  dashboard.js — Dashboard page logic
 // ============================================================
-import { supabase, getCurrentUser, signOut } from '../supabase.js';
+import { supabase, requireAuth, signOut } from '../supabase.js';
 
 // ---- Shared: toast ----
 export function toast(msg, type = 'info') {
@@ -147,7 +147,7 @@ function renderRecent() {
 //  INIT
 // ============================================================
 (async () => {
-  const user = await getCurrentUser();
+  const user = await requireAuth();
   initSidebar();
   initSignout();
   renderGreeting(user);

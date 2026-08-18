@@ -66,10 +66,11 @@ export async function getCurrentUser() {
  * Redirect to login if not authenticated.
  * Call this at the top of any protected page script.
  */
-export async function requireAuth() {
-  // No redirect: allow pages to call requireAuth() without forcing a login redirect.
-  // Returns the current user or null.
+export async function requireAuth(redirectTo = 'login.html') {
   const user = await getCurrentUser();
+  if (!user) {
+    window.location.href = redirectTo;
+  }
   return user;
 }
 
