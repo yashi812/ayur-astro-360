@@ -7,7 +7,7 @@
   <meta name="description" content="Generate your Vedic birth chart and discover your planetary insights." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700&family=DM+Sans:wght@300;400;500;600&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
   <style>
     .dob-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
@@ -15,7 +15,7 @@
     .chart-svg-wrap{width:100%;max-width:340px;margin:0 auto;}
     .planet-table{width:100%;border-collapse:collapse;font-size:13px;}
     .planet-table th{text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-light);border-bottom:1px solid rgba(30,92,46,.1);}
-    .planet-table td{padding:10px 12px;border-bottom:1px solid rgba(30,92,46,.06);}
+    .planet-table td{padding:10px 12px;border-bottom:1px solid rgba(30,92,46,.06);font-family:'Noto Sans Devanagari','DM Sans',sans-serif;}
     .insights-list{display:flex;flex-direction:column;gap:14px;margin-top:16px;}
     .insight-item{padding:16px 18px;border-radius:var(--radius-sm);background:rgba(30,92,46,.04);border-left:3px solid var(--gold);font-size:14px;line-height:1.6;}
     .chart-loading{display:flex;align-items:center;justify-content:center;padding:48px;gap:12px;color:var(--text-light);font-size:14px;}
@@ -55,6 +55,36 @@
       .sign-pill-emoji{font-size:24px;}
       .sign-pill-name{font-size:15px;}
     }
+
+    /* ── Dasha & Gochar ── */
+    .dasha-gochar-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:8px;}
+    @media(max-width:900px){.dasha-gochar-grid{grid-template-columns:1fr;}}
+    .dg-subtitle{font-size:13px;font-weight:600;color:var(--green-deep);margin-bottom:12px;font-family:'Noto Sans Devanagari','DM Sans',sans-serif;}
+    .dasha-current{
+      padding:14px 16px;border-radius:var(--radius-sm);
+      background:linear-gradient(135deg,rgba(200,125,47,.1),rgba(30,92,46,.06));
+      border:1px solid rgba(200,125,47,.2);margin-bottom:10px;
+      font-family:'Noto Sans Devanagari','DM Sans',sans-serif;
+    }
+    .dasha-current-label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-light);margin-bottom:4px;}
+    .dasha-current-value{font-size:16px;font-weight:600;color:var(--text-dark);}
+    .dasha-current-period{font-size:12px;color:var(--text-light);margin-top:4px;}
+    .dasha-progress-wrap{margin-top:10px;}
+    .dasha-progress-track{height:6px;background:rgba(30,92,46,.1);border-radius:99px;overflow:hidden;}
+    .dasha-progress-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--green-mid));border-radius:99px;}
+    .dasha-progress-label{font-size:11px;color:var(--text-light);margin-top:5px;font-family:'Noto Sans Devanagari','DM Sans',sans-serif;}
+    .gochar-row{
+      display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;
+      padding:8px 12px;border-radius:6px;font-size:13px;
+      border-bottom:1px solid rgba(30,92,46,.06);
+      font-family:'Noto Sans Devanagari','DM Sans',sans-serif;
+    }
+    .gochar-planet{font-weight:500;color:var(--text-dark);}
+    .gochar-house{color:var(--gold);font-weight:600;}
+    .gochar-tag{font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;margin-left:8px;white-space:nowrap;}
+    .gochar-tag-good{background:rgba(30,92,46,.12);color:var(--green-deep);}
+    .gochar-tag-neutral{background:rgba(180,150,60,.15);color:#8a7020;}
+    .gochar-tag-bad{background:rgba(200,60,47,.12);color:#a83c2a;}
   </style>
 </head>
 <body>
@@ -70,7 +100,7 @@
         <a class="nav-item active" href="kundli.html"><span class="nav-icon">⭐</span> Kundli</a>
         <a class="nav-item" href="health.html"><span class="nav-icon">🌿</span> Health & Dosha</a>
         <!-- Manifestation removed -->
-        <a class="nav-item" href="chat.html"><span class="nav-icon">💬</span> AI Guru Chat</a>
+        <a class="nav-item" href="chat.html"><span class="nav-icon">💬</span> Ayur Guru Chat</a>
         <div class="nav-label">Account</div>
         <a class="nav-item" href="profile.html"><span class="nav-icon">👤</span> Profile</a>
       </div>
@@ -142,7 +172,7 @@
           </form>
         </div>
         <div class="chart-loading" id="kundliLoading" style="display:none;">
-          <div class="spinner"></div> Consulting the stars…
+          <div class="spinner"></div> <span id="kundliLoadingText">Consulting the stars…</span>
         </div>
         <div id="kundliResult" style="display:none;">
           <!-- ── Big Three: Moon · Lagna ── -->
@@ -162,17 +192,39 @@
           </div>
           <div class="kundli-grid">
             <div class="card">
-              <div class="card-title">⭐ Birth Chart</div>
+              <div class="card-title">⭐ चंद्र कुंडली</div>
               <div class="chart-svg-wrap" id="chartSvgWrap"></div>
             </div>
             <div class="card">
-              <div class="card-title">🪐 Planetary Positions</div>
+              <div class="card-title">🪐 ग्रह स्थिति (Planetary Positions)</div>
               <table class="planet-table">
-                <thead><tr><th>Planet</th><th>Sign</th><th>House</th><th>Deg°</th></tr></thead>
+                <thead><tr><th>ग्रह</th><th>राशि</th><th>भाव</th><th>अंश</th></tr></thead>
                 <tbody id="planetTableBody"></tbody>
               </table>
             </div>
           </div>
+
+          <!-- ── Dasha & Gochar ── -->
+          <div class="card" style="margin-top:24px;">
+            <div class="card-title">🪐 विंशोत्तरी दशा एवं गोचर</div>
+            <p class="card-subtitle" style="margin-bottom:20px;">Vimshottari Dasha & Current Transits (Gochar)</p>
+
+            <div class="dasha-gochar-grid">
+              <div class="dasha-block">
+                <div class="dg-subtitle">🕉 महादशा / अंतर्दशा</div>
+                <div id="dashaPanel">
+                  <div style="color:var(--text-light);font-size:13px;padding:8px 0;">दशा जानकारी उपलब्ध नहीं है</div>
+                </div>
+              </div>
+              <div class="gochar-block">
+                <div class="dg-subtitle">🌌 वर्तमान गोचर (चंद्र राशि से)</div>
+                <div id="gocharPanel">
+                  <div style="color:var(--text-light);font-size:13px;padding:8px 0;">गोचर लोड हो रहा है…</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="card" style="margin-top:24px;">
             <div class="card-title">✨ AI-Powered Insights</div>
             <div class="insights-list" id="insightsList"></div>

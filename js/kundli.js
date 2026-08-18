@@ -10,38 +10,45 @@
 //  unlike the old VedAstro planet endpoint).
 //  AI insights via Gemini (proxied through Supabase Edge Fn)
 //
-//  ---- WHY THIS REVISION EXISTS -----------------------------------------
-//  Switched the astrology data source from VedAstro to OpenKundali:
-//    - One HTTP call now returns the whole chart (planets, ascendant,
-//      yogas, dasha, shadbala) instead of 11 throttled VedAstro calls,
-//      so the ~45-55s loading wait is gone — a fresh submit is now fast.
-//    - OpenKundali has NO house/bhava calculator and NO name-based
-//      geocoding, so: (a) lat/long are now mandatory — if client-side
-//      geocoding fails, this file falls back to the estimated chart
-//      instead of calling the edge function with missing coordinates;
-//      (b) VedAstro's `HoroscopePredictions` (getRichPredictions) is
-//      gone — the `yogas[]` array returned by generate-kundli is used
-//      as the grounding text for the Gemini insights prompt instead.
-//    - House numbers are still shown (edge function derives them
-//      server-side via the standard whole-sign system from ascendant).
-//
-//  BIRTH TIME INPUT (fixed):
-//  The Hour field is now a plain 24-hour input (0-23) — the old
-//  12-hour + AM/PM select was dropped because it silently produced
-//  invalid times like "29:40" whenever someone typed a 24-hour value
-//  (e.g. 17) into the 12-hour field while AM/PM was also set, which
-//  OpenKundali correctly rejected with an HTTP 400.
-//
-//  PERSISTENCE (unchanged):
+//  PERSISTENCE:
 //  Every generated kundli — full birth inputs AND the complete
-//  computed result (planet positions, ascendant, houses, yoga summary) —
-//  is saved to localStorage under 'aa_kundli_saves'. Opening a saved
-//  reading (via ?id=... or the "Recent" sidebar list) replays it straight
-//  from cache: no re-geocoding, no re-hitting generate-kundli, and the
-//  chart/table/insights render identically to the first time.
+//  computed result (planet positions, ascendant, houses, yoga summary,
+//  dasha, birth lat/long) — is saved to localStorage under
+//  'aa_kundli_saves'. Opening a saved reading (via ?id=... or the
+//  "Recent" sidebar list) replays it straight from cache: no
+//  re-geocoding, no re-hitting generate-kundli for the natal chart —
+//  though Gochar (being "today") is refetched live if lat/long was
+//  persisted with the save.
+//
+//  HINDI/DEVANAGARI:
+//  Planetary Positions table, Dasha panel, and Gochar panel all render
+//  in Devanagari using PLANET_NAME_HI / SIGN_NAME_HI lookups keyed off
+//  the same English planet key / _rawSign already used everywhere else
+//  in this file.
+//
+//  DASHA PANEL:
+//  Shows current Mahadasha → Antardasha → Pratyantardasha from
+//  positions._dasha (already returned by generate-kundli — no new
+//  network call). If dasha.period contains a parseable date range,
+//  also renders a progress bar (% complete + years remaining in the
+//  current Mahadasha). parseDashaPeriodDates() is intentionally
+//  defensive — it tries a few common date-range string shapes and
+//  silently skips the progress bar if nothing matches, rather than
+//  guessing/fabricating a percentage from an unknown format.
+//
+//  GOCHAR PANEL:
+//  Fetches TODAY's planetary positions (same birth lat/long, current
+//  date/time) via a second generate-kundli call, then shows each
+//  transiting planet's house counted FROM the natal Moon sign
+//  (Chandra rashi) — the traditional way Gochar is read — tagged
+//  शुभ/सामान्य/अशुभ per the classical per-planet house-effect rules in
+//  GOCHAR_EFFECTS. Requires real birth lat/long, so it's skipped when
+//  a fallback/estimated chart was used, or when replaying an older
+//  saved reading that didn't persist coordinates.
 // ============================================================
 import { supabase, requireAuth, signOut } from '../supabase.js';
 import { askGemini } from './gemini.js';
+import { drawNorthIndianChart } from './chart-renderer.js';
 
 // ---- Sidebar / signout ----
 document.getElementById('signoutBtn')?.addEventListener('click', signOut);
@@ -91,6 +98,83 @@ const SIGN_NAME_MAP = {
   Libra: 'Libra \u264e', Scorpio: 'Scorpio \u264f', Sagittarius: 'Sagittarius \u2650',
   Capricorn: 'Capricorn \u2651', Aquarius: 'Aquarius \u2652', Pisces: 'Pisces \u2653',
 };
+
+// ---- Devanagari labels for Planetary Positions / Dasha / Gochar panels ----
+const PLANET_NAME_HI = {
+  Sun: 'सूर्य', Moon: 'चंद्र', Mars: 'मंगल', Mercury: 'बुध',
+  Jupiter: 'गुरु', Venus: 'शुक्र', Saturn: 'शनि', Rahu: 'राहु', Ketu: 'केतु',
+};
+
+const SIGN_NAME_HI = {
+  Aries: 'मेष', Taurus: 'वृषभ', Gemini: 'मिथुन', Cancer: 'कर्क',
+  Leo: 'सिंह', Virgo: 'कन्या', Libra: 'तुला', Scorpio: 'वृश्चिक',
+  Sagittarius: 'धनु', Capricorn: 'मकर', Aquarius: 'कुंभ', Pisces: 'मीन',
+};
+
+const DEVANAGARI_DIGITS_KUNDLI = ['०','१','२','३','४','५','६','७','८','९'];
+function toDevanagariNum(n) {
+  return String(n).split('').map((d) => DEVANAGARI_DIGITS_KUNDLI[parseInt(d, 10)] ?? d).join('');
+}
+
+// ============================================================
+//  Classical Gochar (transit) house-effect rules, per planet,
+//  counted from the natal Moon (Chandra rashi) = house 1.
+//  'good' | 'neutral' | 'bad' — standard Jyotish guidance.
+// ============================================================
+const GOCHAR_EFFECTS = {
+  Sun:     { good: [3, 6, 10, 11],                bad: [1, 4, 5, 7, 8, 9, 12] },
+  Moon:    { good: [1, 3, 6, 7, 10, 11],           bad: [2, 4, 5, 8, 9, 12] },
+  Mars:    { good: [3, 6, 11],                     bad: [1, 2, 4, 5, 7, 8, 9, 10, 12] },
+  Mercury: { good: [2, 4, 6, 8, 10, 11],            bad: [1, 3, 5, 7, 9, 12] },
+  Jupiter: { good: [2, 5, 7, 9, 11],                bad: [1, 3, 4, 6, 8, 10, 12] },
+  Venus:   { good: [1, 2, 3, 4, 5, 8, 9, 11, 12],   bad: [6, 7, 10] },
+  Saturn:  { good: [3, 6, 11],                     bad: [1, 2, 4, 5, 7, 8, 9, 10, 12] },
+  Rahu:    { good: [3, 6, 11],                     bad: [1, 2, 4, 5, 7, 8, 9, 10, 12] },
+  Ketu:    { good: [3, 6, 11],                     bad: [1, 2, 4, 5, 7, 8, 9, 10, 12] },
+};
+
+function getGocharTag(planetName, houseFromMoon) {
+  const rule = GOCHAR_EFFECTS[planetName];
+  if (!rule || !houseFromMoon) return null;
+  if (rule.good.indexOf(houseFromMoon) !== -1) return { level: 'good', label: 'शुभ' };
+  if (rule.bad.indexOf(houseFromMoon) !== -1) return { level: 'bad', label: 'अशुभ' };
+  return { level: 'neutral', label: 'सामान्य' };
+}
+
+// ============================================================
+//  Mahadasha progress — attempts to parse a date range out of
+//  dasha.period (whatever shape generate-kundli/OpenKundali returns
+//  it in — the edge function passes it through unmodified). Silently
+//  returns null if no usable dates are found, rather than guessing.
+// ============================================================
+function parseDashaPeriodDates(dasha) {
+  if (!dasha || typeof dasha.period !== 'string') return null;
+
+  const patterns = [
+    /(\d{1,2}\s+\w+\s+\d{4})\s*[-–to]+\s*(\d{1,2}\s+\w+\s+\d{4})/i,
+    /(\d{4}-\d{2}-\d{2})\s*[-–to]+\s*(\d{4}-\d{2}-\d{2})/i,
+    /(\d{1,2}\/\d{1,2}\/\d{4})\s*[-–to]+\s*(\d{1,2}\/\d{1,2}\/\d{4})/i,
+  ];
+  for (const re of patterns) {
+    const m = dasha.period.match(re);
+    if (m) {
+      const start = new Date(m[1]);
+      const end = new Date(m[2]);
+      if (!isNaN(start) && !isNaN(end)) return { start, end };
+    }
+  }
+  return null;
+}
+
+function computeDashaProgress(dates) {
+  const now = new Date();
+  const total = dates.end - dates.start;
+  if (total <= 0) return null;
+  const elapsed = now - dates.start;
+  const pct = Math.max(0, Math.min(100, (elapsed / total) * 100));
+  const yearsLeft = Math.max(0, (dates.end - now) / (1000 * 60 * 60 * 24 * 365.25));
+  return { pct: Math.round(pct), yearsLeft: yearsLeft.toFixed(1) };
+}
 
 // Planet keys as OpenKundali / the generate-kundli edge function returns them
 const PLANET_API_NAMES = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'Rahu', 'Ketu'];
@@ -148,15 +232,13 @@ function getSaveById(id) {
 
 /**
  * Serialise the exact form inputs + the exact computed result
- * (positions, ascendant, yoga summary, and whether a fallback chart
- * was used) so a saved reading can be replayed pixel-for-pixel with
- * zero re-fetching.
+ * (positions, ascendant, dasha, yoga summary, birth lat/long, and
+ * whether a fallback chart was used) so a saved reading can be
+ * replayed pixel-for-pixel with zero re-fetching (except Gochar,
+ * which is inherently "today" and refetched live when lat/long
+ * was persisted).
  */
-function buildSaveRecord(inputs, positions, richSummary, usedFallback) {
-  // Strip positions down to plain serialisable objects (arrays only
-  // keep numeric-index entries under JSON.stringify, so the extra
-  // _ascendant property has to be pulled out explicitly and stored
-  // alongside, then re-attached on load).
+function buildSaveRecord(inputs, positions, richSummary, usedFallback, birthLatLng) {
   const plainPositions = positions.map(function (p) {
     return {
       planet: p.planet, sign: p.sign, house: p.house, deg: p.deg,
@@ -172,8 +254,10 @@ function buildSaveRecord(inputs, positions, richSummary, usedFallback) {
     result: {
       positions: plainPositions,
       ascendant: positions._ascendant || null,
+      dasha: positions._dasha || null,
       richSummary: richSummary || '',
       usedFallback: !!usedFallback,
+      birthLatLng: birthLatLng || null,
     },
   };
 }
@@ -186,7 +270,6 @@ function saveKundliRecord(record) {
     localStorage.setItem(SAVES_KEY, JSON.stringify(trimmed));
   } catch (e) {
     console.warn('[saveKundliRecord] localStorage write failed (quota?):', e);
-    // Drop oldest half and retry once
     try {
       localStorage.setItem(SAVES_KEY, JSON.stringify(trimmed.slice(0, Math.ceil(trimmed.length / 2))));
     } catch (e2) { /* give up silently, chart still renders this session */ }
@@ -198,14 +281,13 @@ function saveKundliRecord(record) {
 function hydratePositionsFromSave(record) {
   const positions = record.result.positions.map(function (p) { return Object.assign({}, p); });
   positions._ascendant = record.result.ascendant || null;
+  positions._dasha = record.result.dasha || null;
   return positions;
 }
 
 /**
  * Search Open-Meteo for up to `count` city matches — used to populate the
- * autocomplete dropdown as the user types. Unlike geocodeCity() (which
- * returns a single best guess for a full, already-typed name), this is
- * meant to be called on partial/in-progress input.
+ * autocomplete dropdown as the user types.
  */
 async function searchCitySuggestions(query, count) {
   if (count === undefined) count = 5;
@@ -237,17 +319,8 @@ async function searchCitySuggestions(query, count) {
   }
 }
 
-// Exact-match cache of user-selected suggestions, keyed by the resolved
-// display name that gets written into the input. When resolveBirthLocation()
-// sees this exact string it skips geocoding entirely — the user already
-// confirmed the place from a real list, so there's no ambiguity/typo risk.
 const _selectedPlaceCache = new Map();
 
-/**
- * Wire a debounced autocomplete dropdown onto the birth-place input, so
- * typos never reach submission — the user picks from real Open-Meteo
- * matches instead of typing a free-text guess that may fail to geocode.
- */
 function setupPlaceAutocomplete() {
   const input = document.getElementById('kPlace');
   if (!input) return;
@@ -259,8 +332,6 @@ function setupPlaceAutocomplete() {
     'background:#fff;border:1px solid #e2d9c8;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.12);' +
     'max-height:220px;overflow-y:auto;display:none;font-size:14px;min-width:220px;';
 
-  // Position the dropdown relative to the input — wrap the input in a
-  // positioned container if it isn't already inside one.
   const parent = input.parentElement;
   if (parent && getComputedStyle(parent).position === 'static') {
     parent.style.position = 'relative';
@@ -299,7 +370,6 @@ function setupPlaceAutocomplete() {
     Array.from(dropdown.children).forEach(function (li, i) {
       li.addEventListener('mouseenter', function () { setActive(i); });
       li.addEventListener('mousedown', function (e) {
-        // mousedown (not click) so it fires before the input's blur handler
         e.preventDefault();
         selectResult(results[i]);
       });
@@ -314,7 +384,6 @@ function setupPlaceAutocomplete() {
   }
 
   input.addEventListener('input', function () {
-    // Any manual edit invalidates a previously-selected exact match.
     _selectedPlaceCache.delete(input.value);
     const query = input.value;
     if (debounceId) clearTimeout(debounceId);
@@ -324,7 +393,6 @@ function setupPlaceAutocomplete() {
     }
     debounceId = setTimeout(async function () {
       const results = await searchCitySuggestions(query);
-      // Guard against stale responses if the input changed while in flight.
       if (input.value === query) renderResults(results);
     }, 300);
   });
@@ -348,23 +416,11 @@ function setupPlaceAutocomplete() {
   });
 
   input.addEventListener('blur', function () {
-    // Small delay so a mousedown-driven selectResult() above still fires
-    // before the dropdown is torn down.
     setTimeout(hideDropdown, 100);
   });
 }
 
-// ============================================================
-//  Geocoding: "City, Country" -> { latitude, longitude, timezone }
-//  Uses Open-Meteo's free geocoding API (no key, CORS-enabled).
-//  This is now REQUIRED, not just nice-to-have — OpenKundali's /chart
-//  endpoint has no name-based lookup, only lat/lon. If this fails, the
-//  caller falls back to the estimated pseudo-chart (deriveChart below).
-//  Cached in sessionStorage to avoid repeat lookups.
-// ============================================================
 async function geocodeCity(city) {
-  // If the user picked this exact string from the autocomplete dropdown,
-  // reuse those coordinates directly — no risk of a mismatched geocode.
   if (_selectedPlaceCache.has(city)) {
     return _selectedPlaceCache.get(city);
   }
@@ -375,7 +431,6 @@ async function geocodeCity(city) {
     try { return JSON.parse(cached); } catch (e) { /* fall through to re-fetch */ }
   }
 
-  // Open-Meteo works best with just the city name, not "City, Country"
   const primaryTerm = city.split(',')[0].trim();
 
   try {
@@ -393,7 +448,7 @@ async function geocodeCity(city) {
     const result = {
       latitude: hit.latitude,
       longitude: hit.longitude,
-      timezone: hit.timezone || null, // IANA name, e.g. "Asia/Kolkata"
+      timezone: hit.timezone || null,
       resolvedName: [hit.name, hit.admin1, hit.country].filter(Boolean).join(', '),
     };
     sessionStorage.setItem(cacheKey, JSON.stringify(result));
@@ -406,62 +461,25 @@ async function geocodeCity(city) {
 
 setupPlaceAutocomplete();
 
-/**
- * Resolve a birth city to real coordinates. Unlike the old VedAstro
- * integration, there's no name-based fallback path anymore — OpenKundali
- * needs real lat/lon — so this simply returns null when geocoding fails,
- * and the caller degrades to the estimated chart.
- *
- * Returns { latitude, longitude, resolvedName } or null.
- */
 async function resolveBirthLocation(city) {
   const geo = await geocodeCity(city);
   if (!geo) return null;
   return { latitude: geo.latitude, longitude: geo.longitude, resolvedName: geo.resolvedName };
 }
 
-/**
- * Trim a decimal-degree-derived string like "18° 8'" — no-op helper kept
- * for symmetry with the old trimDegStr; the edge function already returns
- * degrees pre-formatted as "12° 34'".
- */
 function trimDegStr(degStr) {
   return degStr || "0\u00b0 0'";
 }
 
 // ============================================================
 //  Planetary positions + ascendant via the generate-kundli Edge Function
-//  (which now calls OpenKundali server-side). One call gets all 9
-//  grahas, the Ascendant, yogas, and dasha — no batching/throttling
-//  needed since OpenKundali has no rate cap.
 // ============================================================
-
-/**
- * Fetch all 9 planet positions plus the Ascendant, yogas, and dasha via
- * the `generate-kundli` Supabase Edge Function.
- *
- * [location]   city name (label only — used for the saved-record display)
- * [time]       HH:MM (24-hour)
- * [isoDate]    YYYY-MM-DD
- * [latitude]   required
- * [longitude]  required
- *
- * Returns an array shaped like the old client-side parser output:
- *   [{ planet, sign, house, deg, _rawSign }, ...]
- * with an extra `_ascendant` property and a `_yogas` array stashed on
- * it, so the rest of this file (chart drawing, table, insights) needs
- * no further changes.
- */
 async function fetchAllPlanetPositions(location, time, isoDate, latitude, longitude, name) {
   const { data, error } = await supabase.functions.invoke('generate-kundli', {
     body: { date: isoDate, time, latitude, longitude, name },
   });
 
   if (error) {
-    // supabase-js's `error.message` for a non-2xx response is just a generic
-    // "Edge Function returned a non-2xx status code" — the actual reason
-    // (e.g. OpenKundali fetch failure, bad params) is in the response body,
-    // reachable via error.context (a Response object in supabase-js v2).
     let detail = error.message;
     try {
       if (error.context && typeof error.context.json === 'function') {
@@ -519,13 +537,6 @@ async function fetchAllPlanetPositions(location, time, isoDate, latitude, longit
   return planetResults;
 }
 
-/**
- * Build a human-readable summary from OpenKundali's `yogas[]` (used as
- * the grounding text for the Gemini insights prompt, in place of
- * VedAstro's old HoroscopePredictions call). Also folds in the current
- * dasha period when available, since that's high-value context Gemini
- * previously didn't have in this exact form.
- */
 function buildRichSummary(yogas, dasha) {
   const lines = [];
   if (Array.isArray(yogas) && yogas.length > 0) {
@@ -562,7 +573,9 @@ function deriveChart(day, month, year, hour, min) {
 }
 
 // ============================================================
-//  SVG Kundli Wheel
+//  SVG Kundli Wheel (legacy South-Indian style — kept for reference,
+//  not currently called; drawNorthIndianChart from chart-renderer.js
+//  is used instead)
 // ============================================================
 function drawChart(positions) {
   const ns = 'http://www.w3.org/2000/svg';
@@ -573,7 +586,6 @@ function drawChart(positions) {
   svg.setAttribute('role', 'img');
   svg.setAttribute('aria-label', 'Vedic Birth Chart');
 
-  // Background
   const bg = document.createElementNS(ns, 'circle');
   bg.setAttribute('cx', cx); bg.setAttribute('cy', cy);
   bg.setAttribute('r', r + 10);
@@ -582,7 +594,6 @@ function drawChart(positions) {
   bg.setAttribute('stroke-width', '1.5');
   svg.appendChild(bg);
 
-  // Inner circles
   [r * 0.75, r * 0.5, r * 0.25].forEach(function(ir) {
     const c = document.createElementNS(ns, 'circle');
     c.setAttribute('cx', cx); c.setAttribute('cy', cy);
@@ -594,10 +605,6 @@ function drawChart(positions) {
     svg.appendChild(c);
   });
 
-  // 12 house lines + rashi labels.
-  // NOTE: this wheel is a fixed-sign layout (South-Indian style) — box i
-  // always belongs to SIGN_ORDER[i], regardless of the Ascendant. Planets
-  // must therefore be placed by SIGN, not by house number (see below).
   for (let i = 0; i < 12; i++) {
     const angle = (i * 30 - 90) * Math.PI / 180;
     const x1 = cx + Math.cos(angle) * r * 0.25;
@@ -622,19 +629,14 @@ function drawChart(positions) {
     txt.setAttribute('font-size', '9');
     txt.setAttribute('fill', '#1e5c2e');
     txt.setAttribute('font-family', 'DM Sans, sans-serif');
-    txt.textContent = RASHIS[i].split(' ')[1]; // symbol only
+    txt.textContent = RASHIS[i].split(' ')[1];
     svg.appendChild(txt);
   }
 
-  // Group ALL planets (not just the first 7) by their fixed sign box so
-  // conjunctions (multiple grahas in the same rashi) fan out within that
-  // box instead of overlapping or landing in the wrong box entirely.
   const bySignIdx = {};
   positions.forEach(function(p) {
     const signIdx = p._rawSign && SIGN_ORDER.indexOf(p._rawSign) !== -1
       ? SIGN_ORDER.indexOf(p._rawSign)
-      // Fallback ONLY if sign data is missing — approximate via house,
-      // which is wrong in general but better than nothing.
       : Math.max(0, (p.house || 1) - 1);
     if (!bySignIdx[signIdx]) bySignIdx[signIdx] = [];
     bySignIdx[signIdx].push(p);
@@ -645,7 +647,6 @@ function drawChart(positions) {
     const group = bySignIdx[key];
     const pr = r * 0.58;
     group.forEach(function(p, j) {
-      // Spread planets sharing a sign across a small arc within that box.
       const spread = group.length > 1 ? (j - (group.length - 1) / 2) * 9 : 0;
       const angle = ((signIdx * 30 + 15 + spread - 90) * Math.PI) / 180;
       const px = cx + Math.cos(angle) * pr;
@@ -670,7 +671,6 @@ function drawChart(positions) {
     });
   });
 
-  // Center star
   const ct = document.createElementNS(ns, 'text');
   ct.setAttribute('x', cx); ct.setAttribute('y', cy);
   ct.setAttribute('text-anchor', 'middle');
@@ -684,23 +684,126 @@ function drawChart(positions) {
 }
 
 // ============================================================
-//  Planet table
+//  Planet table — Devanagari (ग्रह / राशि / भाव)
 // ============================================================
 function renderPlanetTable(positions) {
   const tbody = document.getElementById('planetTableBody');
   if (!tbody) return;
   tbody.innerHTML = positions.map(function(p) {
-    const retro = p._retrograde ? ' <span title="Retrograde">\u211e</span>' : '';
-    const combust = p._combust ? ' <span title="Combust">\u2600</span>' : '';
-    return '<tr><td>' + p.planet + retro + combust + '</td><td>' + p.sign + '</td><td>House ' + p.house + '</td><td>' + p.deg + '</td></tr>';
+    const planetKey = p.planet.split(' ')[0];
+    const planetHi = PLANET_NAME_HI[planetKey] || planetKey;
+    const signHi = SIGN_NAME_HI[p._rawSign] || p.sign;
+    const houseHi = 'भाव ' + toDevanagariNum(p.house);
+
+    const retro = p._retrograde ? ' <span title="वक्री">\u211e</span>' : '';
+    const combust = p._combust ? ' <span title="अस्त">\u2600</span>' : '';
+
+    return '<tr><td>' + planetHi + retro + combust + '</td><td>' + signHi + '</td><td>' + houseHi + '</td><td>' + p.deg + '</td></tr>';
   }).join('');
 }
 
 // ============================================================
+//  Vimshottari Dasha panel — current period + progress bar if
+//  dasha.period contains a parseable date range.
+// ============================================================
+function renderDashaPanel(dasha) {
+  const el = document.getElementById('dashaPanel');
+  if (!el) return;
+
+  if (!dasha || !dasha.current) {
+    el.innerHTML = '<div style="color:var(--text-light);font-size:13px;padding:8px 0;">दशा जानकारी उपलब्ध नहीं है</div>';
+    return;
+  }
+
+  function hiName(en) {
+    return PLANET_NAME_HI[en] || en;
+  }
+
+  const rows = [];
+  rows.push({ label: 'महादशा (Mahadasha)', value: hiName(dasha.current) });
+  if (dasha.sub) rows.push({ label: 'अंतर्दशा (Antardasha)', value: hiName(dasha.sub) });
+  if (dasha.pratyantar) rows.push({ label: 'प्रत्यंतर्दशा (Pratyantardasha)', value: hiName(dasha.pratyantar) });
+
+  let progressHtml = '';
+  const dates = parseDashaPeriodDates(dasha);
+  if (dates) {
+    const progress = computeDashaProgress(dates);
+    if (progress) {
+      progressHtml =
+        '<div class="dasha-progress-wrap">' +
+          '<div class="dasha-progress-track"><div class="dasha-progress-fill" style="width:' + progress.pct + '%"></div></div>' +
+          '<div class="dasha-progress-label">' + progress.pct + '% पूर्ण \u2014 लगभग ' + progress.yearsLeft + ' वर्ष शेष</div>' +
+        '</div>';
+    }
+  }
+
+  el.innerHTML =
+    '<div class="dasha-current">' +
+      rows.map(function (r) {
+        let html = '<div class="dasha-current-label">' + r.label + '</div><div class="dasha-current-value">' + r.value + '</div>';
+        if (r.label.indexOf('महादशा') !== -1 && dasha.period) {
+          html += '<div class="dasha-current-period">' + dasha.period + '</div>';
+        }
+        return html;
+      }).join('<div style="height:8px;"></div>') +
+      progressHtml +
+    '</div>';
+}
+
+// ============================================================
+//  Gochar (transit) panel
+// ============================================================
+async function renderGocharPanel(natalMoonSignName, latitude, longitude) {
+  const el = document.getElementById('gocharPanel');
+  if (!el) return;
+
+  if (!natalMoonSignName || typeof latitude !== 'number' || typeof longitude !== 'number') {
+    el.innerHTML = '<div style="color:var(--text-light);font-size:13px;padding:8px 0;">गोचर हेतु सटीक जन्म स्थान चाहिए</div>';
+    return;
+  }
+
+  el.innerHTML = '<div style="color:var(--text-light);font-size:13px;padding:8px 0;">गोचर लोड हो रहा है…</div>';
+
+  const now = new Date();
+  const isoToday = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+  const timeNow = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+
+  try {
+    const { data, error } = await supabase.functions.invoke('generate-kundli', {
+      body: { date: isoToday, time: timeNow, latitude, longitude, name: 'Gochar' },
+    });
+
+    if (error || !data || !data.planets) {
+      throw new Error('gochar fetch failed');
+    }
+
+    const moonIdx = SIGN_ORDER.indexOf(natalMoonSignName);
+    const startIdx = moonIdx === -1 ? 0 : moonIdx;
+
+    const rowsHtml = PLANET_API_NAMES.map(function (planetName) {
+      const p = data.planets[planetName];
+      if (!p || !p.sign) return '';
+      const signIdx = SIGN_ORDER.indexOf(p.sign);
+      const houseFromMoon = signIdx === -1 ? null : ((signIdx - startIdx + 12) % 12) + 1;
+      const nameHi = PLANET_NAME_HI[planetName] || planetName;
+      const signHi = SIGN_NAME_HI[p.sign] || p.sign;
+      const houseLabel = houseFromMoon ? 'भाव ' + toDevanagariNum(houseFromMoon) : '—';
+
+      const tag = getGocharTag(planetName, houseFromMoon);
+      const tagHtml = tag ? '<span class="gochar-tag gochar-tag-' + tag.level + '">' + tag.label + '</span>' : '';
+
+      return '<div class="gochar-row"><span class="gochar-planet">' + nameHi + ' \u2014 ' + signHi + '</span><span style="display:flex;align-items:center;"><span class="gochar-house">' + houseLabel + '</span>' + tagHtml + '</span></div>';
+    }).join('');
+
+    el.innerHTML = rowsHtml || '<div style="color:var(--text-light);font-size:13px;padding:8px 0;">गोचर डेटा उपलब्ध नहीं</div>';
+  } catch (err) {
+    console.warn('[renderGocharPanel] failed:', err);
+    el.innerHTML = '<div style="color:var(--text-light);font-size:13px;padding:8px 0;">गोचर लोड नहीं हो सका</div>';
+  }
+}
+
+// ============================================================
 //  AI Insights, powered by Gemini via askGemini()
-//  The OpenKundali yoga/dasha summary is injected verbatim into the
-//  prompt so Gemini has real Jyotish grounding to elaborate on, rather
-//  than hallucinating.
 // ============================================================
 async function renderInsights(name, positions, richSummary) {
   if (richSummary === undefined) richSummary = '';
@@ -712,8 +815,6 @@ async function renderInsights(name, positions, richSummary) {
     .map(function(p) { return p.planet + ' in ' + p.sign + ' (House ' + p.house + ', ' + p.deg + ')'; })
     .join(', ');
 
-  // Inject OpenKundali yogas/dasha as grounding context, same strategy
-  // as the Dart guidance_screen.dart which passes richSummary to the LLM.
   const groundingContext = richSummary
     ? '\n\nComputed Jyotish yogas and current dasha for this chart (use these as your primary source):\n' + richSummary
     : '';
@@ -740,7 +841,6 @@ async function renderInsights(name, positions, richSummary) {
     }).join('');
   } catch (err) {
     console.warn('Gemini insight error:', err);
-    // Graceful fallback using actual positions
     insightsList.innerHTML = positions.slice(0, 4).map(function(p, i) {
       const texts = [
         'Your ' + p.planet + ' in ' + p.sign + ' (House ' + p.house + ') shapes your core identity and self-expression in profound ways.',
@@ -756,14 +856,8 @@ async function renderInsights(name, positions, richSummary) {
 // ============================================================
 //  Sun Sign Banner (Big Three: Sun, Moon, Ascendant)
 // ============================================================
-
-/**
- * Populate the three sign pills above the chart.
- * @param {Array}       positions  fetched planet positions array
- * @param {object|null} ascendant  { sign, degStr } from the generate-kundli lagna field
- */
 function renderSunSignBanner(positions, ascendant) {
-  const moon = positions[1];  // Moon
+  const moon = positions[1];
 
   const moonSign  = (moon && moon._rawSign) || '';
   const lagnaSign = (ascendant && ascendant.sign) || '';
@@ -789,7 +883,7 @@ function renderSunSignBanner(positions, ascendant) {
 //  Shared render step — used by BOTH a fresh submit and a cache
 //  replay, so a saved reading looks identical to a live one.
 // ============================================================
-function renderKundliResult(name, positions, richSummary, usedFallback) {
+function renderKundliResult(name, positions, richSummary, usedFallback, birthLatLng) {
   stopLoadingTicker();
   document.getElementById('kundliFormCard').style.display = 'none';
   document.getElementById('kundliLoading').style.display  = 'none';
@@ -799,9 +893,8 @@ function renderKundliResult(name, positions, richSummary, usedFallback) {
   const svgWrap = document.getElementById('chartSvgWrap');
   if (svgWrap) {
     svgWrap.innerHTML = '';
-    svgWrap.appendChild(drawChart(positions));
+    svgWrap.appendChild(drawNorthIndianChart(positions, positions._ascendant || null));
 
-    // Clear any previously-appended notices before adding the current one
     const existingNotice = svgWrap.parentElement?.querySelector('.kundli-data-notice');
     if (existingNotice) existingNotice.remove();
 
@@ -821,13 +914,21 @@ function renderKundliResult(name, positions, richSummary, usedFallback) {
   renderSunSignBanner(positions, positions._ascendant || null);
   renderPlanetTable(positions);
   renderInsights(name, positions, richSummary);
+
+  renderDashaPanel(positions._dasha || null);
+
+  const moon = positions.find(function (p) { return p.planet.split(' ')[0] === 'Moon'; });
+  const natalMoonSign = moon ? moon._rawSign : null;
+  if (birthLatLng && !usedFallback) {
+    renderGocharPanel(natalMoonSign, birthLatLng.latitude, birthLatLng.longitude);
+  } else {
+    const gEl = document.getElementById('gocharPanel');
+    if (gEl) gEl.innerHTML = '<div style="color:var(--text-light);font-size:13px;padding:8px 0;">गोचर हेतु सटीक जन्म स्थान चाहिए</div>';
+  }
 }
 
 // ============================================================
 //  Loading progress ticker
-//  OpenKundali returns the whole chart from a single request (no more
-//  batched/throttled VedAstro calls), so a fresh submit is fast — this
-//  ticker mostly covers geocoding + the one chart request + Gemini.
 // ============================================================
 const LOADING_STEPS = [
   'Locating the birth place\u2026',
@@ -859,14 +960,14 @@ function stopLoadingTicker() {
   }
 }
 
-/** Replay a saved reading straight from localStorage — no network calls. */
 function loadSavedReading(id) {
   const record = getSaveById(id);
   if (!record) return false;
 
   document.getElementById('kundliLoading').style.display = 'none';
   const positions = hydratePositionsFromSave(record);
-  renderKundliResult(record.inputs.name, positions, record.result.richSummary, record.result.usedFallback);
+  const birthLatLng = record.result.birthLatLng || null;
+  renderKundliResult(record.inputs.name, positions, record.result.richSummary, record.result.usedFallback, birthLatLng);
   return true;
 }
 
@@ -881,11 +982,9 @@ if (kundliForm) {
     const name     = document.getElementById('kName').value.trim();
     const day      = parseInt(document.getElementById('kDay').value);
     const monthStr = document.getElementById('kMonth').value;
-    const month    = MONTHS.indexOf(monthStr) + 1;   // 1-based
+    const month    = MONTHS.indexOf(monthStr) + 1;
     const year     = parseInt(document.getElementById('kYear').value);
 
-    // Hour is now entered directly as 24-hour (0-23) — no AM/PM
-    // conversion needed, and no risk of an invalid "29:40"-style time.
     const hour24   = parseInt(document.getElementById('kHour').value) || 0;
     const min      = parseInt(document.getElementById('kMin').value)  || 0;
 
@@ -894,14 +993,10 @@ if (kundliForm) {
 
     if (!name || !day || !month || !year) return;
 
-    // Build date/time strings.
-    // dateStr (DD/MM/YYYY) is kept for the saved-record display/inputs;
-    // isoDate (YYYY-MM-DD) is what OpenKundali (via generate-kundli) expects.
     const dateStr = String(day).padStart(2,'0') + '/' + String(month).padStart(2,'0') + '/' + year;
     const isoDate = year + '-' + String(month).padStart(2,'0') + '-' + String(day).padStart(2,'0');
     const timeStr = String(hour24).padStart(2,'0') + ':' + String(min).padStart(2,'0');
 
-    // Show loading
     document.getElementById('kundliFormCard').style.display = 'none';
     document.getElementById('kundliLoading').style.display  = 'flex';
     startLoadingTicker();
@@ -909,39 +1004,34 @@ if (kundliForm) {
     let positions    = [];
     let richSummary  = '';
     let usedFallback = false;
+    let birthLatLng  = null;
 
     try {
-      // 1. Resolve the birth city to real coordinates. OpenKundali has no
-      //    name-based geocoding, so this is mandatory — if it fails we
-      //    fall through to the estimated pseudo-chart below.
       const loc = await resolveBirthLocation(city);
       if (!loc) {
         throw new Error('Could not geocode birth place "' + city + '"');
       }
+      birthLatLng = { latitude: loc.latitude, longitude: loc.longitude };
 
-      // 2. Fetch the full chart (planets + ascendant + yogas + dasha)
-      //    from the generate-kundli edge function in one call.
       positions = await fetchAllPlanetPositions(city, timeStr, isoDate, loc.latitude, loc.longitude, name);
       richSummary = buildRichSummary(positions._yogas, positions._dasha);
+
+      renderKundliResult(name, positions, richSummary, usedFallback, birthLatLng);
     } catch (err) {
       console.warn('generate-kundli edge function unavailable, using fallback chart:', err);
       positions    = deriveChart(day, month, year, hour24, min);
       usedFallback = true;
+      birthLatLng  = null;
+      renderKundliResult(name, positions, richSummary, usedFallback, birthLatLng);
     }
 
-    // Render (shared with the cache-replay path)
-    renderKundliResult(name, positions, richSummary, usedFallback);
-
-    // ---- Persist: full inputs + full computed result, so this exact
-    //      reading can be reopened instantly with zero recompute ----
     const inputs = {
       name, day, month, monthName: monthStr, year,
       hour: hour24, min, city, dateStr, timeStr,
     };
-    const record = buildSaveRecord(inputs, positions, richSummary, usedFallback);
+    const record = buildSaveRecord(inputs, positions, richSummary, usedFallback, birthLatLng);
     const savedId = saveKundliRecord(record);
 
-    // Legacy stats/recent-list counters, now linked to the saved record
     const prev = parseInt(localStorage.getItem('aa_readings') || '0');
     localStorage.setItem('aa_readings', prev + 1);
 
@@ -954,8 +1044,6 @@ if (kundliForm) {
     });
     localStorage.setItem('aa_recent', JSON.stringify(recent.slice(0, 10)));
 
-    // Reflect the id in the address bar too, so refreshing/sharing
-    // the URL reopens this exact reading from cache.
     try {
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.set('id', savedId);
@@ -990,8 +1078,6 @@ if (resetChartBtn) {
     document.getElementById('kundliLoading').style.display  = 'flex';
     const loaded = loadSavedReading(savedId);
     if (!loaded) {
-      // Saved record not found (e.g. cleared storage / different device) —
-      // fall back to the empty form.
       stopLoadingTicker();
       document.getElementById('kundliLoading').style.display  = 'none';
       document.getElementById('kundliFormCard').style.display = 'block';

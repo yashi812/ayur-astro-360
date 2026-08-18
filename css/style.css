@@ -615,7 +615,7 @@ input, textarea, select { font-family: inherit; }
    ============================================================ */
 @media (max-width: 600px) {
 
-  /* Top bar — hide "Ask Guru" button on small screens to prevent overflow */
+  /* Top bar — hide "Ask Ayur Guru" button on small screens to prevent overflow */
   .top-bar { padding: 12px 16px; gap: 10px; }
   .top-bar .btn-gold { display: none; }
   .top-bar-title { font-size: 18px; }
