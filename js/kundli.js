@@ -740,12 +740,9 @@ function renderDashaPanel(dasha) {
   el.innerHTML =
     '<div class="dasha-current">' +
       rows.map(function (r) {
-        let html = '<div class="dasha-current-label">' + r.label + '</div><div class="dasha-current-value">' + r.value + '</div>';
-        if (r.label.indexOf('महादशा') !== -1 && dasha.period) {
-          html += '<div class="dasha-current-period">' + dasha.period + '</div>';
-        }
-        return html;
+        return '<div class="dasha-current-label">' + r.label + '</div><div class="dasha-current-value">' + r.value + '</div>';
       }).join('<div style="height:8px;"></div>') +
+      (dasha.period ? '<div class="dasha-current-period">' + dasha.period + '</div>' : '') +
       progressHtml +
     '</div>';
 }
