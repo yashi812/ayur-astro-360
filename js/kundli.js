@@ -262,19 +262,69 @@ function buildSaveRecord(inputs, positions, richSummary, usedFallback, birthLatL
   };
 }
 
-function saveKundliRecord(record) {
-  const all = loadAllSaves();
-  all.unshift(record);
-  const trimmed = all.slice(0, MAX_SAVES);
-  try {
-    localStorage.setItem(SAVES_KEY, JSON.stringify(trimmed));
-  } catch (e) {
-    console.warn('[saveKundliRecord] localStorage write failed (quota?):', e);
-    try {
-      localStorage.setItem(SAVES_KEY, JSON.stringify(trimmed.slice(0, Math.ceil(trimmed.length / 2))));
-    } catch (e2) { /* give up silently, chart still renders this session */ }
-  }
+async function saveKundliRecord(record) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return record.id;
+
+  const { error } = await supabase.from('kundli_saves').insert({
+    id: record.id,
+    user_id: user.id,
+    saved_at: record.savedAt,
+    inputs: record.inputs,
+    result: record.result,
+  });
+  if (error) console.warn('[saveKundliRecord] Supabase write failed:', error);
   return record.id;
+}
+
+async function getSaveById(id) {
+  if (!id) return null;
+  const { data, error } = await supabase
+    .from('kundli_saves')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error || !data) return null;
+  return { id: data.id, savedAt: data.saved_at, inputs: data.inputs, result: data.result };
+}
+
+async function saveKundliRecord(record) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return record.id;
+
+  const { error } = await supabase.from('kundli_saves').insert({
+    id: record.id,
+    user_id: user.id,
+    saved_at: record.savedAt,
+    inputs: record.inputs,
+    result: record.result,
+  });
+  if (error) console.warn('[saveKundliRecord] Supabase write failed:', error);
+  return record.id;
+}
+
+async function getSaveById(id) {
+  if (!id) return null;
+  const { data, error } = await supabase
+    .from('kundli_saves')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error || !data) return null;
+  return { id: data.id, savedAt: data.saved_at, inputs: data.inputs, result: data.result };
+}
+
+async function loadAllSaves() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data, error } = await supabase
+    .from('kundli_saves')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('saved_at', { ascending: false })
+    .limit(30);
+  if (error || !data) return [];
+  return data.map(r => ({ id: r.id, savedAt: r.saved_at, inputs: r.inputs, result: r.result }));
 }
 
 /** Rehydrate a saved record back into the `positions` shape the renderers expect. */

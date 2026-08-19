@@ -196,9 +196,12 @@
 
     const info = DOSHA_INFO[dominant];
 
-    // Save to localStorage
-    localStorage.setItem('aa_dosha', JSON.stringify({ dominant, vata: vataPct, pitta: pittaPct, kapha: kaphaPct }));
-
+    const { data: { user } } = await supabase.auth.getUser();
+if (user) {
+  await supabase.from('dosha_results').upsert({
+    user_id: user.id, dominant, vata: vataPct, pitta: pittaPct, kapha: kaphaPct, updated_at: new Date().toISOString(),
+  });
+}
     // Show result
     document.getElementById('quizCard').style.display      = 'none';
     document.getElementById('healthResult').style.display  = 'block';

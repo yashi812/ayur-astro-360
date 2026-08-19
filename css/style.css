@@ -150,6 +150,7 @@ input, textarea, select { font-family: inherit; }
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-width: 0;
 }
 
 .top-bar {
@@ -180,6 +181,7 @@ input, textarea, select { font-family: inherit; }
 .avatar-btn:hover { box-shadow: 0 0 0 4px var(--green-glow); }
 
 .page-content { flex: 1; padding: 32px; }
+.page-content > * { min-width: 0; }
 
 /* ============================================================
    CARDS
@@ -191,6 +193,7 @@ input, textarea, select { font-family: inherit; }
   padding: 24px;
   border: 1px solid rgba(30,92,46,0.06);
   transition: box-shadow var(--transition), transform var(--transition);
+  min-width: 0;
 }
 .card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
 
@@ -619,6 +622,8 @@ input, textarea, select { font-family: inherit; }
   .top-bar { padding: 12px 16px; gap: 10px; }
   .top-bar .btn-gold { display: none; }
   .top-bar-title { font-size: 18px; }
+  .top-bar-right { gap: 8px; min-width: 0; }
+  .top-bar-right .btn { max-width: 42vw; overflow: hidden; text-overflow: ellipsis; }
 
   /* Page padding */
   .page-content { padding: 20px 14px; }
@@ -653,10 +658,24 @@ input, textarea, select { font-family: inherit; }
   /* Card padding */
   .card { padding: 16px; }
 
+  /* Keep tables and long generated text inside the viewport. */
+  .planet-table { display: block; overflow-x: auto; white-space: nowrap; }
+  .chat-bubble { max-width: 88%; }
+  .chat-messages { padding: 16px 14px; }
+  .chat-input-bar { padding: 12px 14px; gap: 8px; }
+
   /* Dosha bars */
   .dosha-bar-wrap { margin-bottom: 18px; }
 }
 
 @media (max-width: 600px) {
   .mobile-ask-guru { display: inline-flex !important; }
+}
+
+@media (max-width: 480px) {
+  .btn { padding-left: 16px; padding-right: 16px; }
+  .btn-sm { padding-left: 10px; padding-right: 10px; }
+  .auth-page { padding: 12px; }
+  .auth-card { padding: 28px 20px; }
+  .name-row { grid-template-columns: 1fr; gap: 0; }
 }

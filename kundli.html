@@ -13,6 +13,7 @@
     .dob-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
     .time-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
     .chart-svg-wrap{width:100%;max-width:340px;margin:0 auto;}
+    .chart-svg-wrap svg{display:block;width:100%;height:auto;}
     .planet-table{width:100%;border-collapse:collapse;font-size:13px;}
     .planet-table th{text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-light);border-bottom:1px solid rgba(30,92,46,.1);}
     .planet-table td{padding:10px 12px;border-bottom:1px solid rgba(30,92,46,.06);font-family:'Noto Sans Devanagari','DM Sans',sans-serif;}
@@ -55,6 +56,11 @@
       .sign-pill-emoji{font-size:24px;}
       .sign-pill-name{font-size:15px;}
     }
+    @media(max-width:480px){
+      .dob-row{grid-template-columns:1fr;gap:0;}
+      .time-row{grid-template-columns:1fr;gap:0;}
+      .sign-pill{min-width:0;flex-basis:calc(50% - 8px);}
+    }
 
     /* ── Dasha & Gochar ── */
     .dasha-gochar-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:8px;}
@@ -85,6 +91,10 @@
     .gochar-tag-good{background:rgba(30,92,46,.12);color:var(--green-deep);}
     .gochar-tag-neutral{background:rgba(180,150,60,.15);color:#8a7020;}
     .gochar-tag-bad{background:rgba(200,60,47,.12);color:#a83c2a;}
+    @media(max-width:480px){
+      .gochar-row{align-items:flex-start;gap:4px;}
+      .gochar-tag{margin-left:0;}
+    }
   </style>
 </head>
 <body>
